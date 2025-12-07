@@ -664,7 +664,7 @@
 #   v6.3.2 - Fixed PCA/UMAP
 # ============================================================================
 
-SCRIPT_VERSION <- "5.13.6"
+SCRIPT_VERSION <- "5.13.7"
 SCRIPT_DATE <- "2025-12-05"
 
 
@@ -9202,11 +9202,38 @@ if (opt$generate_markdown) {
             labels = c("Accuracy", "Sensitivity", "Specificity", "AUC")
           )
 
-          # Calculate means for horizontal lines
+          # Calculate means and 95% CIs for annotations
           mean_accuracy <- mean(fold_data$accuracy, na.rm = TRUE)
           mean_sensitivity <- mean(fold_data$mean_sensitivity, na.rm = TRUE)
           mean_specificity <- mean(fold_data$mean_specificity, na.rm = TRUE)
           mean_auc <- mean(fold_data$auc, na.rm = TRUE)
+
+          # Calculate 95% CIs
+          n_folds <- nrow(fold_data)
+          se_accuracy <- sd(fold_data$accuracy, na.rm = TRUE) / sqrt(n_folds)
+          se_sensitivity <- sd(fold_data$mean_sensitivity, na.rm = TRUE) / sqrt(n_folds)
+          se_specificity <- sd(fold_data$mean_specificity, na.rm = TRUE) / sqrt(n_folds)
+          se_auc <- sd(fold_data$auc, na.rm = TRUE) / sqrt(n_folds)
+
+          ci_accuracy <- c(mean_accuracy - 1.96 * se_accuracy, mean_accuracy + 1.96 * se_accuracy)
+          ci_sensitivity <- c(mean_sensitivity - 1.96 * se_sensitivity, mean_sensitivity + 1.96 * se_sensitivity)
+          ci_specificity <- c(mean_specificity - 1.96 * se_specificity, mean_specificity + 1.96 * se_specificity)
+          ci_auc <- c(mean_auc - 1.96 * se_auc, mean_auc + 1.96 * se_auc)
+
+          # Create annotation dataframe
+          annotation_df <- data.frame(
+            metric = c("Accuracy", "Sensitivity", "Specificity", "AUC"),
+            label = c(
+              sprintf("%.1f%% [CI: %.1f-%.1f%%]", mean_accuracy * 100, ci_accuracy[1] * 100, ci_accuracy[2] * 100),
+              sprintf("%.1f%% [CI: %.1f-%.1f%%]", mean_sensitivity * 100, ci_sensitivity[1] * 100, ci_sensitivity[2] * 100),
+              sprintf("%.1f%% [CI: %.1f-%.1f%%]", mean_specificity * 100, ci_specificity[1] * 100, ci_specificity[2] * 100),
+              sprintf("%.3f [CI: %.3f-%.3f]", mean_auc, ci_auc[1], ci_auc[2])
+            ),
+            x = Inf,
+            y = -Inf,
+            hjust = 1.05,
+            vjust = -0.5
+          )
 
           # Create the 4-panel fold performance plot
           p_cv_fold_performance <- ggplot(fold_long, aes(x = fold, y = value, color = metric, group = metric)) +
@@ -9216,6 +9243,11 @@ if (opt$generate_markdown) {
               metric = c("Accuracy", "Sensitivity", "Specificity", "AUC"),
               mean_val = c(mean_accuracy, mean_sensitivity, mean_specificity, mean_auc)
             ), aes(yintercept = mean_val, color = metric), linetype = "dashed", alpha = 0.5) +
+            geom_text(
+              data = annotation_df,
+              aes(x = x, y = y, label = label, hjust = hjust, vjust = vjust),
+              family = "Arial", size = 4, color = "black", inherit.aes = FALSE
+            ) +
             facet_wrap(~metric, scales = "free_y", nrow = 2) +
             scale_color_brewer(palette = "Set1") +
             labs(
@@ -9229,7 +9261,8 @@ if (opt$generate_markdown) {
             theme(
               plot.title = element_text(size = 14, face = "bold"),
               legend.position = "none",
-              strip.text = element_text(size = 12, face = "bold")
+              strip.text = element_text(size = 12, face = "bold"),
+              text = element_text(family = "Arial")
             ) +
             ylim(0, 1)
 

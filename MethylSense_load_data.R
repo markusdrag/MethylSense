@@ -7,7 +7,7 @@
 #          → methylKit methylRaw objects for downstream DMR and ML analysis
 #
 # Author: Markus Hodal Drag
-# Version: 5.13.6
+# Version: 5.13.7
 # Release Date: 2025-12-03
 # GitHub: https://github.com/markusdrag/MethylSense
 #
@@ -20,7 +20,7 @@
 #   https://doi.org/10.1101/2025.04.11.648151
 # ================================================================================
 
-SCRIPT_VERSION <- "5.13.6"
+SCRIPT_VERSION <- "5.13.7"
 SCRIPT_DATE <- "2025-12-03"
 
 suppressPackageStartupMessages({
