@@ -1,0 +1,62 @@
+# R and RStudio
+.Rproj.user/
+.Rhistory
+.RData
+.Ruserdata
+*.Rproj
+
+# Output and results
+*.qs
+*.rds
+*.RDS
+output/
+results/
+MethylSense_output/
+*_output/
+
+# Data files
+*.bam
+*.bai
+*.fastq
+*.fq
+*.gz
+
+# Plots and reports
+*.png
+*.pdf
+*.tiff
+*.html
+
+# Cache files
+cache/
+.cache/
+precomputed_data/
+*_cache/
+
+# Temporary files
+*.tmp
+*.log
+*.swp
+*~
+.DS_Store
+
+# Private/development versions
+private/
+MethylSense_v*[0-9].R
+!MethylSense_v76_public.R
+archive_old_versions/
+*_backup*
+*.bak*
+
+# Documentation build files
+docs/_build/
+*.aux
+*.out
+
+# IDE files
+.vscode/
+.idea/
+
+# OS files
+Thumbs.db
+ehthumbs.db
