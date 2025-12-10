@@ -252,7 +252,7 @@ Runtime: 5-15 minutes
 
 ```bash
 Rscript MethylSense_general_data_overview.R \
-  --analysis_dir ./training \
+  --analysis_dir ./training/training_* \
   --sample_sheet ./example_data/sample_metadata.xlsx \
   --region_sizes "5000" \
   --output_dir ./data_overview \
