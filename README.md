@@ -208,8 +208,8 @@ This step converts raw CpG BED files into a unified methylKit object (qs format)
 ```bash
 Rscript MethylSense_load_data.R \
   --species "Gallus_gallus" \
-  --sample_sheet sample_metadata.xlsx \
-  --bed_dir ./cpg_beds \
+  --sample_sheet ./example_data/sample_metadata.xlsx \
+  --bed_dir ./example_data \
   --output_dir ./preprocessed
 ```
 
@@ -253,7 +253,7 @@ Runtime: 5-15 minutes
 ```bash
 Rscript MethylSense_general_data_overview.R \
   --analysis_dir ./training \
-  --sample_sheet sample_metadata.xlsx \
+  --sample_sheet ./example_data/sample_metadata.xlsx \
   --region_sizes "1000,5000,10000,25000" \
   --output_dir ./data_overview \
   --plot_format png,pdf
@@ -281,7 +281,7 @@ Before using a model for clinical diagnosis, evaluate its performance to select 
 Rscript MethylSense_reviewer.R \
   --model_dir ./training/models/rf_model/ \
   --qs_file ./preprocessed/methylation_data.qs \
-  --sample_sheet sample_metadata.xlsx \
+  --sample_sheet ./example_data/sample_metadata.xlsx \
   --output_dir ./report
 ```
 

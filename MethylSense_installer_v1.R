@@ -19,16 +19,16 @@ cat("  METHYLSENSE COMPLETE PACKAGE INSTALLER v1.0.0\n")
 cat("================================================================================\n")
 cat("\n")
 cat("This script will install all required R packages for:\n")
-cat("  • MethylSense_load_data_v7.R    - Data preprocessing\n")
-cat("  • MethylSense_v76_public.R      - DMR detection & ML training\n")
-cat("  • MethylSense_predict_v3.R      - Prediction on new samples\n")
+cat("  • MethylSense_load_data.R       - Data preprocessing\n")
+cat("  • MethylSense_analysis.R        - DMR detection & ML training\n")
+cat("  • MethylSense_predict.R         - Prediction on new samples\n")
 cat("\n")
 cat("Estimated installation time: 15-45 minutes\n")
 cat("================================================================================\n\n")
 
 # Set CRAN mirror
 options(repos = c(CRAN = "https://cloud.r-project.org/"))
-options(timeout = 600)  # Increase timeout for large packages
+options(timeout = 600) # Increase timeout for large packages
 
 # ================================================================================
 # PACKAGE LISTS
@@ -36,86 +36,86 @@ options(timeout = 600)  # Increase timeout for large packages
 
 # Core packages (used across all scripts)
 core_packages <- c(
-  "optparse",      # Command-line argument parsing
-  "data.table",    # Fast data manipulation
-  "dplyr",         # Data manipulation
-  "qs"             # Fast serialization for R objects
+  "optparse", # Command-line argument parsing
+  "data.table", # Fast data manipulation
+  "dplyr", # Data manipulation
+  "qs" # Fast serialization for R objects
 )
 
-# Data loading packages (MethylSense_load_data_v7.R)
+# Data loading packages (MethylSense_load_data.R)
 data_packages <- c(
-  "readxl",        # Read Excel files (sample metadata)
-  "parallel"       # Parallel processing
+  "readxl", # Read Excel files (sample metadata)
+  "parallel" # Parallel processing
 )
 
-# Machine learning packages (MethylSense_v76_public.R + predict)
+# Machine learning packages (MethylSense_analysis.R + predict)
 ml_packages <- c(
-  "caret",         # ML framework
-  "randomForest",  # Random Forest
-  "ranger",        # Fast Random Forest implementation
-  "e1071",         # SVM
-  "glmnet",        # Elastic Net (glmnet)
-  "xgboost",       # Gradient Boosting
-  "naivebayes",    # Naive Bayes
-  "nnet",          # Neural Networks
-  "MASS",          # LDA
-  "class",         # kNN
-  "klaR",          # PAM (Nearest Shrunken Centroids)
-  "pls"            # Partial Least Squares
+  "caret", # ML framework
+  "randomForest", # Random Forest
+  "ranger", # Fast Random Forest implementation
+  "e1071", # SVM
+  "glmnet", # Elastic Net (glmnet)
+  "xgboost", # Gradient Boosting
+  "naivebayes", # Naive Bayes
+  "nnet", # Neural Networks
+  "MASS", # LDA
+  "class", # kNN
+  "klaR", # PAM (Nearest Shrunken Centroids)
+  "pls" # Partial Least Squares
 )
 
 # Model evaluation packages
 eval_packages <- c(
-  "pROC",          # ROC curves and AUC
-  "PRROC",         # Precision-Recall curves
-  "MLmetrics"      # Additional ML metrics
+  "pROC", # ROC curves and AUC
+  "PRROC", # Precision-Recall curves
+  "MLmetrics" # Additional ML metrics
 )
 
 # Visualization packages
 viz_packages <- c(
-  "ggplot2",       # Publication-quality plots
-  "pheatmap",      # Heatmaps
-  "RColorBrewer",  # Color palettes
-  "viridis",       # Colorblind-friendly palettes
-  "corrplot",      # Correlation plots
-  "factoextra",    # PCA visualization
-  "ggridges",      # Ridge plots
-  "gridExtra",     # Arrange multiple plots (for predict script)
-  "ggrepel"        # Text labels for plots (reviewer script)
+  "ggplot2", # Publication-quality plots
+  "pheatmap", # Heatmaps
+  "RColorBrewer", # Color palettes
+  "viridis", # Colorblind-friendly palettes
+  "corrplot", # Correlation plots
+  "factoextra", # PCA visualization
+  "ggridges", # Ridge plots
+  "gridExtra", # Arrange multiple plots (for predict script)
+  "ggrepel" # Text labels for plots (reviewer script)
 )
 
 # Tree/ensemble packages
 tree_packages <- c(
-  "tree",          # Decision trees
-  "rpart",         # Recursive partitioning
-  "rpart.plot"     # Plot rpart trees
+  "tree", # Decision trees
+  "rpart", # Recursive partitioning
+  "rpart.plot" # Plot rpart trees
 )
 
 # Parallel processing packages
 parallel_packages <- c(
-  "parallel",      # Base parallel
-  "doParallel",    # Parallel backend for caret
-  "foreach"        # Parallel foreach loops
+  "parallel", # Base parallel
+  "doParallel", # Parallel backend for caret
+  "foreach" # Parallel foreach loops
 )
 
 # Additional utility packages
 utility_packages <- c(
-  "reshape2",      # Data reshaping
-  "cluster",       # Clustering algorithms
-  "jsonlite",      # JSON I/O for nested CV hyperparameters
-  "igraph",        # Network analysis (reviewer script)
-  "umap",          # UMAP dimensionality reduction (reviewer script)
-  "dendextend",    # Dendrogram manipulation (reviewer script)
-  "pagedown"       # PDF generation for clinical reports (reviewer script)
+  "reshape2", # Data reshaping
+  "cluster", # Clustering algorithms
+  "jsonlite", # JSON I/O for nested CV hyperparameters
+  "igraph", # Network analysis (reviewer script)
+  "umap", # UMAP dimensionality reduction (reviewer script)
+  "dendextend", # Dendrogram manipulation (reviewer script)
+  "pagedown" # PDF generation for clinical reports (reviewer script)
 )
 
 # Statistical analysis packages (for reviewer script)
 statistical_packages <- c(
-  "lme4",          # Linear mixed effects models (time series)
-  "nlme",          # Non-linear mixed effects (alternative)
-  "MuMIn",         # Multi-model inference (R² calculations)
-  "ez",            # ANOVA analysis
-  "fossil"         # Rand index for clustering metrics
+  "lme4", # Linear mixed effects models (time series)
+  "nlme", # Non-linear mixed effects (alternative)
+  "MuMIn", # Multi-model inference (R² calculations)
+  "ez", # ANOVA analysis
+  "fossil" # Rand index for clustering metrics
 )
 
 # Combine all CRAN packages
@@ -133,19 +133,19 @@ all_cran_packages <- unique(c(
 
 # Bioconductor packages (methylation analysis)
 bioc_packages <- c(
-  "methylKit",      # Methylation data analysis (CORE)
-  "GenomicRanges",  # Genomic coordinates manipulation
-  "genomation",     # Genomic region annotation
-  "regioneR",       # Region enrichment analysis
-  "IRanges"         # Integer ranges operations
+  "methylKit", # Methylation data analysis (CORE)
+  "GenomicRanges", # Genomic coordinates manipulation
+  "genomation", # Genomic region annotation
+  "regioneR", # Region enrichment analysis
+  "IRanges" # Integer ranges operations
 )
 
 # Optional Bioconductor packages (for reviewer script advanced features)
 # These are optional and installed only if user wants advanced analyses
 bioc_optional_packages <- c(
-  "biomaRt",           # Gene annotation (optional)
-  "clusterProfiler",   # Functional enrichment (optional)
-  "WGCNA"              # Co-expression network analysis (optional)
+  "biomaRt", # Gene annotation (optional)
+  "clusterProfiler", # Functional enrichment (optional)
+  "WGCNA" # Co-expression network analysis (optional)
 )
 
 # ================================================================================
@@ -156,17 +156,20 @@ bioc_optional_packages <- c(
 install_cran_package <- function(pkg) {
   if (!requireNamespace(pkg, quietly = TRUE)) {
     cat(sprintf("[INSTALL] %-20s ... ", pkg))
-    tryCatch({
-      suppressMessages(
-        install.packages(pkg, dependencies = TRUE, quiet = TRUE)
-      )
-      cat("✓ SUCCESS\n")
-      return(TRUE)
-    }, error = function(e) {
-      cat("✗ FAILED\n")
-      cat(sprintf("          Error: %s\n", e$message))
-      return(FALSE)
-    })
+    tryCatch(
+      {
+        suppressMessages(
+          install.packages(pkg, dependencies = TRUE, quiet = TRUE)
+        )
+        cat("✓ SUCCESS\n")
+        return(TRUE)
+      },
+      error = function(e) {
+        cat("✗ FAILED\n")
+        cat(sprintf("          Error: %s\n", e$message))
+        return(FALSE)
+      }
+    )
   } else {
     cat(sprintf("[SKIP]    %-20s ... already installed\n", pkg))
     return(TRUE)
@@ -177,17 +180,20 @@ install_cran_package <- function(pkg) {
 install_bioc_package <- function(pkg) {
   if (!requireNamespace(pkg, quietly = TRUE)) {
     cat(sprintf("[INSTALL] %-20s ... ", pkg))
-    tryCatch({
-      suppressMessages(
-        BiocManager::install(pkg, update = FALSE, ask = FALSE, quiet = TRUE)
-      )
-      cat("✓ SUCCESS\n")
-      return(TRUE)
-    }, error = function(e) {
-      cat("✗ FAILED\n")
-      cat(sprintf("          Error: %s\n", e$message))
-      return(FALSE)
-    })
+    tryCatch(
+      {
+        suppressMessages(
+          BiocManager::install(pkg, update = FALSE, ask = FALSE, quiet = TRUE)
+        )
+        cat("✓ SUCCESS\n")
+        return(TRUE)
+      },
+      error = function(e) {
+        cat("✗ FAILED\n")
+        cat(sprintf("          Error: %s\n", e$message))
+        return(FALSE)
+      }
+    )
   } else {
     cat(sprintf("[SKIP]    %-20s ... already installed\n", pkg))
     return(TRUE)
@@ -203,8 +209,10 @@ cat(sprintf("Total packages to check: %d\n\n", length(all_cran_packages)))
 
 cran_success <- sapply(all_cran_packages, install_cran_package)
 
-cat(sprintf("\nCRAN packages installed: %d/%d\n",
-            sum(cran_success), length(all_cran_packages)))
+cat(sprintf(
+  "\nCRAN packages installed: %d/%d\n",
+  sum(cran_success), length(all_cran_packages)
+))
 
 # ================================================================================
 # INSTALL BIOCONDUCTOR PACKAGES
@@ -215,14 +223,17 @@ cat("\n=== STEP 2/3: Installing Bioconductor packages ===\n\n")
 # Install BiocManager if needed
 if (!requireNamespace("BiocManager", quietly = TRUE)) {
   cat("[INSTALL] BiocManager          ... ")
-  tryCatch({
-    install.packages("BiocManager", quiet = TRUE)
-    cat("✓ SUCCESS\n\n")
-  }, error = function(e) {
-    cat("✗ FAILED\n")
-    cat("ERROR: Cannot install BiocManager. Please install manually.\n")
-    quit(status = 1)
-  })
+  tryCatch(
+    {
+      install.packages("BiocManager", quiet = TRUE)
+      cat("✓ SUCCESS\n\n")
+    },
+    error = function(e) {
+      cat("✗ FAILED\n")
+      cat("ERROR: Cannot install BiocManager. Please install manually.\n")
+      quit(status = 1)
+    }
+  )
 } else {
   cat("[SKIP]    BiocManager          ... already installed\n\n")
 }
@@ -231,8 +242,10 @@ cat(sprintf("Total Bioconductor packages to check: %d\n\n", length(bioc_packages
 
 bioc_success <- sapply(bioc_packages, install_bioc_package)
 
-cat(sprintf("\nBioconductor packages installed: %d/%d\n",
-            sum(bioc_success), length(bioc_packages)))
+cat(sprintf(
+  "\nBioconductor packages installed: %d/%d\n",
+  sum(bioc_success), length(bioc_packages)
+))
 
 # ================================================================================
 # INSTALL OPTIONAL BIOCONDUCTOR PACKAGES
@@ -248,8 +261,10 @@ cat(sprintf("Total optional packages to check: %d\n\n", length(bioc_optional_pac
 
 bioc_optional_success <- sapply(bioc_optional_packages, install_bioc_package)
 
-cat(sprintf("\nOptional Bioconductor packages installed: %d/%d\n",
-            sum(bioc_optional_success), length(bioc_optional_packages)))
+cat(sprintf(
+  "\nOptional Bioconductor packages installed: %d/%d\n",
+  sum(bioc_optional_success), length(bioc_optional_packages)
+))
 
 if (sum(bioc_optional_success) < length(bioc_optional_packages)) {
   cat("\nNOTE: Some optional packages failed to install.\n")
@@ -339,20 +354,23 @@ if (length(missing_packages) == 0) {
 cat("\n=== Saving package versions ===\n\n")
 session_file <- "MethylSense_package_versions.txt"
 
-tryCatch({
-  sink(session_file)
-  cat("MethylSense Package Installation Summary\n")
-  cat(paste0("Date: ", Sys.time(), "\n"))
-  cat(paste0("R Version: ", R.version.string, "\n"))
-  cat(paste0("Platform: ", R.version$platform, "\n\n"))
-  cat(rep("=", 80), "\n\n", sep = "")
-  print(sessionInfo())
-  sink()
-  cat(sprintf("✓ Package versions saved to: %s\n", session_file))
-}, error = function(e) {
-  sink()  # Ensure sink is closed even on error
-  cat("✗ Failed to save package versions\n")
-})
+tryCatch(
+  {
+    sink(session_file)
+    cat("MethylSense Package Installation Summary\n")
+    cat(paste0("Date: ", Sys.time(), "\n"))
+    cat(paste0("R Version: ", R.version.string, "\n"))
+    cat(paste0("Platform: ", R.version$platform, "\n\n"))
+    cat(rep("=", 80), "\n\n", sep = "")
+    print(sessionInfo())
+    sink()
+    cat(sprintf("✓ Package versions saved to: %s\n", session_file))
+  },
+  error = function(e) {
+    sink() # Ensure sink is closed even on error
+    cat("✗ Failed to save package versions\n")
+  }
+)
 
 # ================================================================================
 # FINAL STATUS
