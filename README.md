@@ -258,7 +258,8 @@ Rscript MethylSense_general_data_overview.R \
   --output_dir ./data_overview \
   --plot_format png,pdf \
   --infection_col Infection \
-  --sample_id_col ID
+  --sample_id_col ID \
+  --study_col Study
 ```
 
 What happens: The script analyses your DMR results and generates publication-ready figures including:
