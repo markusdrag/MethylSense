@@ -281,43 +281,34 @@ Runtime: 5-10 minutes
 Before using a model for clinical diagnosis, evaluate its performance to select the best model. This step generates comprehensive reports with publication-ready figures to help you choose the optimal diagnostic model.
 
 ```bash
+# Find a trained model directory (pick one based on marker count)
 Rscript MethylSense_reviewer.R \
-  --model_dir ./training/models/rf_model/ \
-  --qs_file ./preprocessed/methylation_data.qs \
+  --model_dir ./training/training_*/windows_5kb/rf/markers_10 \
+  --qs_file ./preprocessed/*_methylRaw.qs \
   --sample_sheet ./example_data/sample_metadata.xlsx \
-  --output_dir ./report
+  --output_subdir ./report
 ```
 
 What happens: The reviewer analyses model performance on the training data, generates ROC curves, confusion matrices, feature importance plots, and creates detailed reports. Compare performance across different models (rf, svm, xgboost) to select the best one for your diagnostic application.
 
-Output: MODEL_EVALUATION_REPORT.md, html, pdf, figures, tables
+Output: MODEL_EVALUATION_REPORT.md, MODEL_EVALUATION_REPORT.html, figures, tables
 
 ### Step 4: Diagnose New Samples
 
 Runtime: 1-2 minutes
 
-Apply your selected model to classify new patient samples. This step produces diagnostic predictions with confidence scores to guide clinical decision-making.
-
-First, preprocess your new samples using the load_data script (leave the treatMethylkit column empty or set to NA for unknown samples):
+Apply your selected model to classify new unknown samples. For the tutorial, we'll use some of the same samples as "unknowns" to demonstrate the workflow.
 
 ```bash
-Rscript MethylSense_load_data.R \
-  --species "Gallus_gallus" \
-  --sample_sheet new_samples_metadata.xlsx \
-  --bed_dir ./new_cpg_beds \
-  --output_dir ./new_preprocessed
-```
-
-Then run prediction:
-
-```bash
+# Use the trained model to predict on samples
 Rscript MethylSense_predict.R \
-  --model_dir ./training/models/rf_model/ \
-  --qs_file new_samples.qs \
-  --output_dir ./predictions
+  --model_dir ./training/training_*/windows_5kb/rf/markers_10 \
+  --qs_file ./preprocessed/*_methylRaw.qs \
+  --output_dir ./predictions \
+  --plots
 ```
 
-What happens: New samples are processed using the same DMR regions from training. The trained model predicts each sample's disease status with a probability score indicating prediction confidence.
+What happens: Samples are processed using the same DMR regions from training. The trained model predicts each sample's infection status with a probability score indicating prediction confidence.
 
 Output: Predictions (csv files), confidence scores, diagnostic plots
 

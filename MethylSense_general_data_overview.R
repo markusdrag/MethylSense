@@ -23,7 +23,7 @@
 #
 # ================================================================================
 
-SCRIPT_VERSION <- "5.13.7"
+SCRIPT_VERSION <- "5.13.8"
 
 # ================================================================================
 # LOAD REQUIRED LIBRARIES
@@ -277,12 +277,34 @@ dmr_counts_list <- list()
 for (region_size in region_sizes) {
   cat(sprintf("Processing %d bp regions...\n", region_size))
 
-  # Find files for this region size
-  dmr_file_pattern <- sprintf("ALL_DMRs_complete_dataset_.*_%dbp\\.csv", region_size)
-  dmr_file <- list.files(opt$analysis_dir, pattern = dmr_file_pattern, full.names = TRUE)
+  # Find files for this region size - try both naming conventions (5000bp and 5kb)
+  # Pattern 1: explicit bp format (e.g., _5000bp.csv)
+  dmr_file_pattern_bp <- sprintf("ALL_DMRs_complete_dataset_.*_%dbp\\.csv", region_size)
+  # Pattern 2: kb format (e.g., _5kb.csv or windows_5kb.csv)
+  dmr_file_pattern_kb <- sprintf("ALL_DMRs_complete_dataset_.*_%dkb\\.csv", region_size / 1000)
+  # Pattern 3: windows_Xkb format
+  dmr_file_pattern_win <- sprintf("ALL_DMRs_complete_dataset_windows_%dkb\\.csv", region_size / 1000)
 
-  meth_file_pattern <- sprintf("united_meth_object_.*_%dbp_.*\\.qs", region_size)
-  meth_file <- list.files(opt$analysis_dir, pattern = meth_file_pattern, full.names = TRUE)
+  dmr_file <- list.files(opt$analysis_dir, pattern = dmr_file_pattern_bp, full.names = TRUE)
+  if (length(dmr_file) == 0) {
+    dmr_file <- list.files(opt$analysis_dir, pattern = dmr_file_pattern_kb, full.names = TRUE)
+  }
+  if (length(dmr_file) == 0) {
+    dmr_file <- list.files(opt$analysis_dir, pattern = dmr_file_pattern_win, full.names = TRUE)
+  }
+
+  # Same for meth files
+  meth_file_pattern_bp <- sprintf("united_meth_object_.*_%dbp_.*\\.qs", region_size)
+  meth_file_pattern_kb <- sprintf("united_meth_object_.*_%dkb_.*\\.qs", region_size / 1000)
+  meth_file_pattern_win <- sprintf("united_meth_object_windows_%dkb_.*\\.qs", region_size / 1000)
+
+  meth_file <- list.files(opt$analysis_dir, pattern = meth_file_pattern_bp, full.names = TRUE)
+  if (length(meth_file) == 0) {
+    meth_file <- list.files(opt$analysis_dir, pattern = meth_file_pattern_kb, full.names = TRUE)
+  }
+  if (length(meth_file) == 0) {
+    meth_file <- list.files(opt$analysis_dir, pattern = meth_file_pattern_win, full.names = TRUE)
+  }
 
   if (length(dmr_file) == 0 || length(meth_file) == 0) {
     cat(sprintf("  [WARNING] Files not found for %d bp, skipping...\n", region_size))
@@ -382,11 +404,30 @@ all_dmr_data <- list()
 all_meth_objects <- list()
 
 for (region_size in region_sizes) {
-  dmr_file_pattern <- sprintf("ALL_DMRs_complete_dataset_.*_%dbp\\.csv", region_size)
-  dmr_file <- list.files(opt$analysis_dir, pattern = dmr_file_pattern, full.names = TRUE)
+  # Try multiple naming conventions (5000bp and 5kb)
+  dmr_file_pattern_bp <- sprintf("ALL_DMRs_complete_dataset_.*_%dbp\\.csv", region_size)
+  dmr_file_pattern_kb <- sprintf("ALL_DMRs_complete_dataset_.*_%dkb\\.csv", region_size / 1000)
+  dmr_file_pattern_win <- sprintf("ALL_DMRs_complete_dataset_windows_%dkb\\.csv", region_size / 1000)
 
-  meth_file_pattern <- sprintf("united_meth_object_.*_%dbp_.*\\.qs", region_size)
-  meth_file <- list.files(opt$analysis_dir, pattern = meth_file_pattern, full.names = TRUE)
+  dmr_file <- list.files(opt$analysis_dir, pattern = dmr_file_pattern_bp, full.names = TRUE)
+  if (length(dmr_file) == 0) {
+    dmr_file <- list.files(opt$analysis_dir, pattern = dmr_file_pattern_kb, full.names = TRUE)
+  }
+  if (length(dmr_file) == 0) {
+    dmr_file <- list.files(opt$analysis_dir, pattern = dmr_file_pattern_win, full.names = TRUE)
+  }
+
+  meth_file_pattern_bp <- sprintf("united_meth_object_.*_%dbp_.*\\.qs", region_size)
+  meth_file_pattern_kb <- sprintf("united_meth_object_.*_%dkb_.*\\.qs", region_size / 1000)
+  meth_file_pattern_win <- sprintf("united_meth_object_windows_%dkb_.*\\.qs", region_size / 1000)
+
+  meth_file <- list.files(opt$analysis_dir, pattern = meth_file_pattern_bp, full.names = TRUE)
+  if (length(meth_file) == 0) {
+    meth_file <- list.files(opt$analysis_dir, pattern = meth_file_pattern_kb, full.names = TRUE)
+  }
+  if (length(meth_file) == 0) {
+    meth_file <- list.files(opt$analysis_dir, pattern = meth_file_pattern_win, full.names = TRUE)
+  }
 
   if (length(dmr_file) > 0 && length(meth_file) > 0) {
     all_dmr_data[[as.character(region_size)]] <- read.csv(dmr_file[1])
