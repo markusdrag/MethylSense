@@ -225,9 +225,9 @@ This is the core analysis step. MethylSense identifies differentially methylated
 
 ```bash
 Rscript MethylSense_analysis.R \
-  --qs_file ./preprocessed/methylation_data.qs \
+  --qs_file ./preprocessed/*_methylRaw.qs \
   --output_dir ./training \
-  --window_file windows_5kb.bed \
+  --window_file ./example_data/windows/windows_5kb.bed \
   --models rf,svm,xgboost \
   --group_names Control,Infected,Suspected \
   --positive_class Infected \
