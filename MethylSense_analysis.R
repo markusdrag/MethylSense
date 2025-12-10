@@ -157,7 +157,7 @@
 # ================================================================================
 
 # Script version for logging
-SCRIPT_VERSION <- "5.13.7"
+SCRIPT_VERSION <- "5.13.8"
 SCRIPT_DATE <- "2025-12-03"
 
 cat("\n")

@@ -20,7 +20,7 @@
 #   https://doi.org/10.1101/2025.04.11.648151
 # ================================================================================
 
-SCRIPT_VERSION <- "5.13.7"
+SCRIPT_VERSION <- "5.13.8"
 SCRIPT_DATE <- "2025-12-03"
 
 suppressPackageStartupMessages({
