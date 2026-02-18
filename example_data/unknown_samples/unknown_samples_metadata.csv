@@ -1,0 +1,4 @@
+"ID","Species","bedFileOrg","bedFile","treatMethylkit","Infection","Study"
+"unknown_1","Gallus_gallus","unknown_1.CpG.bed","unknown_1_8col.bed",NA,NA,"Unknown_Samples"
+"unknown_2","Gallus_gallus","unknown_2.CpG.bed","unknown_2_8col.bed",NA,NA,"Unknown_Samples"
+"unknown_3","Gallus_gallus","unknown_3.CpG.bed","unknown_3_8col.bed",NA,NA,"Unknown_Samples"

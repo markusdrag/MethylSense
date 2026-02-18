@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 320">
+  <defs>
+    <marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L0,6 L8,3 z" fill="#6c757d"/>
+    </marker>
+  </defs>
+  
+  <!-- Background -->
+  <rect width="700" height="320" fill="#ffffff"/>
+  
+  <!-- Title -->
+  <text x="350" y="25" font-family="Helvetica, Arial, sans-serif" font-size="16" font-weight="bold" text-anchor="middle" fill="#2c3e50">MethylSense Architecture</text>
+  
+  <!-- Input Section -->
+  <rect x="30" y="50" width="140" height="250" rx="6" fill="#f8f9fa" stroke="#dee2e6" stroke-width="1"/>
+  <text x="100" y="70" font-family="Helvetica, Arial, sans-serif" font-size="11" font-weight="bold" text-anchor="middle" fill="#495057">INPUT</text>
+  
+  <rect x="45" y="85" width="110" height="35" rx="4" fill="#3498db"/>
+  <text x="100" y="100" font-family="Helvetica, Arial, sans-serif" font-size="9" text-anchor="middle" fill="white">.CpG.bed files</text>
+  <text x="100" y="112" font-family="Helvetica, Arial, sans-serif" font-size="7" text-anchor="middle" fill="rgba(255,255,255,0.8)">from NanoporeToBED</text>
+  
+  <rect x="45" y="130" width="110" height="35" rx="4" fill="#3498db"/>
+  <text x="100" y="145" font-family="Helvetica, Arial, sans-serif" font-size="9" text-anchor="middle" fill="white">Sample Sheet</text>
+  <text x="100" y="157" font-family="Helvetica, Arial, sans-serif" font-size="7" text-anchor="middle" fill="rgba(255,255,255,0.8)">.xlsx metadata</text>
+  
+  <rect x="45" y="175" width="110" height="35" rx="4" fill="#3498db"/>
+  <text x="100" y="190" font-family="Helvetica, Arial, sans-serif" font-size="9" text-anchor="middle" fill="white">Window BED</text>
+  <text x="100" y="202" font-family="Helvetica, Arial, sans-serif" font-size="7" text-anchor="middle" fill="rgba(255,255,255,0.8)">from GenomeToWindows</text>
+  
+  <rect x="45" y="220" width="110" height="35" rx="4" fill="#95a5a6"/>
+  <text x="100" y="235" font-family="Helvetica, Arial, sans-serif" font-size="9" text-anchor="middle" fill="white">New Samples</text>
+  <text x="100" y="247" font-family="Helvetica, Arial, sans-serif" font-size="7" text-anchor="middle" fill="rgba(255,255,255,0.8)">for prediction</text>
+  
+  <!-- Arrows from input -->
+  <path d="M 175 150 L 200 150" stroke="#6c757d" stroke-width="1.5" fill="none" marker-end="url(#arrow)"/>
+  
+  <!-- Processing Section -->
+  <rect x="205" y="50" width="290" height="250" rx="6" fill="#ffffff" stroke="#27ae60" stroke-width="2"/>
+  <text x="350" y="70" font-family="Helvetica, Arial, sans-serif" font-size="11" font-weight="bold" text-anchor="middle" fill="#27ae60">METHYLSENSE PIPELINE</text>
+  
+  <!-- Script boxes -->
+  <rect x="220" y="85" width="130" height="50" rx="4" fill="#27ae60"/>
+  <text x="285" y="105" font-family="Helvetica, Arial, sans-serif" font-size="9" font-weight="bold" text-anchor="middle" fill="white">load_data.R</text>
+  <text x="285" y="120" font-family="Helvetica, Arial, sans-serif" font-size="7" text-anchor="middle" fill="rgba(255,255,255,0.9)">Preprocess → .qs</text>
+  
+  <rect x="355" y="85" width="130" height="50" rx="4" fill="#27ae60"/>
+  <text x="420" y="105" font-family="Helvetica, Arial, sans-serif" font-size="9" font-weight="bold" text-anchor="middle" fill="white">analysis.R</text>
+  <text x="420" y="120" font-family="Helvetica, Arial, sans-serif" font-size="7" text-anchor="middle" fill="rgba(255,255,255,0.9)">DMR + ML training</text>
+  
+  <rect x="220" y="145" width="130" height="50" rx="4" fill="#f39c12"/>
+  <text x="285" y="165" font-family="Helvetica, Arial, sans-serif" font-size="9" font-weight="bold" text-anchor="middle" fill="white">predict.R</text>
+  <text x="285" y="180" font-family="Helvetica, Arial, sans-serif" font-size="7" text-anchor="middle" fill="rgba(255,255,255,0.9)">Classify new samples</text>
+  
+  <rect x="355" y="145" width="130" height="50" rx="4" fill="#9b59b6"/>
+  <text x="420" y="165" font-family="Helvetica, Arial, sans-serif" font-size="9" font-weight="bold" text-anchor="middle" fill="white">reviewer.R</text>
+  <text x="420" y="180" font-family="Helvetica, Arial, sans-serif" font-size="7" text-anchor="middle" fill="rgba(255,255,255,0.9)">Generate reports</text>
+  
+  <!-- Internal processing boxes -->
+  <rect x="220" y="210" width="265" height="80" rx="4" fill="#ecf0f1" stroke="#bdc3c7" stroke-width="1"/>
+  <text x="352" y="228" font-family="Helvetica, Arial, sans-serif" font-size="9" font-weight="bold" text-anchor="middle" fill="#7f8c8d">Core Functions</text>
+  
+  <text x="280" y="248" font-family="Helvetica, Arial, sans-serif" font-size="8" text-anchor="middle" fill="#6c757d">DMR Detection</text>
+  <text x="280" y="262" font-family="Helvetica, Arial, sans-serif" font-size="7" text-anchor="middle" fill="#95a5a6">methylKit + FDR</text>
+  
+  <text x="352" y="248" font-family="Helvetica, Arial, sans-serif" font-size="8" text-anchor="middle" fill="#6c757d">ML Training</text>
+  <text x="352" y="262" font-family="Helvetica, Arial, sans-serif" font-size="7" text-anchor="middle" fill="#95a5a6">caret + 9 models</text>
+  
+  <text x="424" y="248" font-family="Helvetica, Arial, sans-serif" font-size="8" text-anchor="middle" fill="#6c757d">Validation</text>
+  <text x="424" y="262" font-family="Helvetica, Arial, sans-serif" font-size="7" text-anchor="middle" fill="#95a5a6">Nested CV + CI</text>
+  
+  <text x="352" y="282" font-family="Helvetica, Arial, sans-serif" font-size="7" text-anchor="middle" fill="#95a5a6">Bootstrap 95% CI • FDR correction • ROC/AUC</text>
+  
+  <!-- Arrow to output -->
+  <path d="M 500 150 L 525 150" stroke="#6c757d" stroke-width="1.5" fill="none" marker-end="url(#arrow)"/>
+  
+  <!-- Output Section -->
+  <rect x="530" y="50" width="155" height="250" rx="6" fill="#f8f9fa" stroke="#dee2e6" stroke-width="1"/>
+  <text x="607" y="70" font-family="Helvetica, Arial, sans-serif" font-size="11" font-weight="bold" text-anchor="middle" fill="#495057">OUTPUT</text>
+  
+  <rect x="545" y="85" width="125" height="35" rx="4" fill="#9b59b6"/>
+  <text x="607" y="100" font-family="Helvetica, Arial, sans-serif" font-size="9" text-anchor="middle" fill="white">Reports</text>
+  <text x="607" y="112" font-family="Helvetica, Arial, sans-serif" font-size="7" text-anchor="middle" fill="rgba(255,255,255,0.8)">MD / HTML / PDF</text>
+  
+  <rect x="545" y="130" width="125" height="35" rx="4" fill="#27ae60"/>
+  <text x="607" y="145" font-family="Helvetica, Arial, sans-serif" font-size="9" text-anchor="middle" fill="white">Trained Models</text>
+  <text x="607" y="157" font-family="Helvetica, Arial, sans-serif" font-size="7" text-anchor="middle" fill="rgba(255,255,255,0.8)">.rds files</text>
+  
+  <rect x="545" y="175" width="125" height="35" rx="4" fill="#3498db"/>
+  <text x="607" y="190" font-family="Helvetica, Arial, sans-serif" font-size="9" text-anchor="middle" fill="white">Figures</text>
+  <text x="607" y="202" font-family="Helvetica, Arial, sans-serif" font-size="7" text-anchor="middle" fill="rgba(255,255,255,0.8)">ROC, heatmaps, PCA</text>
+  
+  <rect x="545" y="220" width="125" height="35" rx="4" fill="#f39c12"/>
+  <text x="607" y="235" font-family="Helvetica, Arial, sans-serif" font-size="9" text-anchor="middle" fill="white">Predictions</text>
+  <text x="607" y="247" font-family="Helvetica, Arial, sans-serif" font-size="7" text-anchor="middle" fill="rgba(255,255,255,0.8)">CSV + confidence</text>
+  
+  <rect x="545" y="265" width="125" height="25" rx="4" fill="#95a5a6"/>
+  <text x="607" y="282" font-family="Helvetica, Arial, sans-serif" font-size="9" text-anchor="middle" fill="white">DMR Results</text>
+</svg>

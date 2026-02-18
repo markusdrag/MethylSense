@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 120">
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#333"/>
+    </marker>
+  </defs>
+  
+  <!-- Background -->
+  <rect width="700" height="120" fill="#ffffff"/>
+  
+  <!-- Step 1: Load Data -->
+  <rect x="20" y="35" width="120" height="50" rx="0" fill="none" stroke="#333" stroke-width="1.5"/>
+  <text x="80" y="55" font-family="Times New Roman, serif" font-size="11" text-anchor="middle" fill="#333">Load Data</text>
+  <text x="80" y="70" font-family="Times New Roman, serif" font-size="9" font-style="italic" text-anchor="middle" fill="#666">load_data.R</text>
+  
+  <!-- Arrow 1 -->
+  <line x1="140" y1="60" x2="175" y2="60" stroke="#333" stroke-width="1.5" marker-end="url(#arrow)"/>
+  
+  <!-- Step 2: Analysis -->
+  <rect x="180" y="35" width="120" height="50" rx="0" fill="none" stroke="#333" stroke-width="1.5"/>
+  <text x="240" y="55" font-family="Times New Roman, serif" font-size="11" text-anchor="middle" fill="#333">DMR + ML Training</text>
+  <text x="240" y="70" font-family="Times New Roman, serif" font-size="9" font-style="italic" text-anchor="middle" fill="#666">analysis.R</text>
+  
+  <!-- Arrow 2 -->
+  <line x1="300" y1="60" x2="335" y2="60" stroke="#333" stroke-width="1.5" marker-end="url(#arrow)"/>
+  
+  <!-- Step 3: Evaluation -->
+  <rect x="340" y="35" width="120" height="50" rx="0" fill="none" stroke="#333" stroke-width="1.5"/>
+  <text x="400" y="55" font-family="Times New Roman, serif" font-size="11" text-anchor="middle" fill="#333">Evaluation</text>
+  <text x="400" y="70" font-family="Times New Roman, serif" font-size="9" font-style="italic" text-anchor="middle" fill="#666">reviewer.R</text>
+  
+  <!-- Arrow 3 -->
+  <line x1="460" y1="60" x2="495" y2="60" stroke="#333" stroke-width="1.5" marker-end="url(#arrow)"/>
+  
+  <!-- Step 4: Predict -->
+  <rect x="500" y="35" width="120" height="50" rx="0" fill="none" stroke="#333" stroke-width="1.5"/>
+  <text x="560" y="55" font-family="Times New Roman, serif" font-size="11" text-anchor="middle" fill="#333">Prediction</text>
+  <text x="560" y="70" font-family="Times New Roman, serif" font-size="9" font-style="italic" text-anchor="middle" fill="#666">predict.R</text>
+  
+  <!-- Arrow 4 to output -->
+  <line x1="620" y1="60" x2="655" y2="60" stroke="#333" stroke-width="1.5" marker-end="url(#arrow)"/>
+  
+  <!-- Output -->
+  <text x="680" y="65" font-family="Times New Roman, serif" font-size="11" text-anchor="middle" fill="#333">Output</text>
+</svg>
