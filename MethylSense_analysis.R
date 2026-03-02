@@ -8193,6 +8193,39 @@ if (length(small_groups) > 0) {
   treatment_processed$labels <- treatment_info
   treatment_processed$group_names <- group_names_final
 
+  # CRITICAL: Update opt$group_names so plot functions that read from opt
+  # (e.g., heatmap annotation, bar plots) use only the filtered groups
+  opt$group_names <- paste(group_names_final, collapse = ",")
+  log_msg(paste("[FILTER] Updated --group_names to:", opt$group_names))
+
+  # Update group colors to match filtered groups only
+  if (!is.null(treatment_processed$group_colors)) {
+    # Keep only colors for groups that survived filtering
+    surviving_colors <- treatment_processed$group_colors[names(treatment_processed$group_colors) %in% group_names_final]
+    if (length(surviving_colors) == length(group_names_final)) {
+      treatment_processed$group_colors <- surviving_colors
+    } else {
+      # Regenerate colors for filtered groups
+      n_filtered <- length(group_names_final)
+      new_colors <- RColorBrewer::brewer.pal(max(3, n_filtered), "Set2")[1:n_filtered]
+      names(new_colors) <- group_names_final
+      treatment_processed$group_colors <- new_colors
+    }
+    log_msg(paste("[FILTER] Updated group colors:", paste(names(treatment_processed$group_colors), "=", treatment_processed$group_colors, collapse = ", ")))
+  } else {
+    # No custom colors were set — generate fresh palette for filtered groups
+    n_filtered <- length(group_names_final)
+    new_colors <- RColorBrewer::brewer.pal(max(3, n_filtered), "Set2")[1:n_filtered]
+    names(new_colors) <- group_names_final
+    treatment_processed$group_colors <- new_colors
+    log_msg(paste("[FILTER] Generated group colors:", paste(names(new_colors), "=", new_colors, collapse = ", ")))
+  }
+
+  # Also update global group_colors_list if it exists
+  if (exists("group_colors_list", envir = .GlobalEnv)) {
+    assign("group_colors_list", treatment_processed$group_colors, envir = .GlobalEnv)
+  }
+
   log_msg(paste("[OK] Filtered to", length(meth), "samples in", length(group_names_final), "groups"))
 
   # Show updated distribution
