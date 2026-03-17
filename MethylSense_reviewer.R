@@ -5327,6 +5327,20 @@ if (length(tech_covariates) > 0) {
         nrow(combined_matrix), ncol(combined_matrix)
       ))
 
+      # Remove constant/zero-variance columns (row subsetting can create new ones)
+      col_vars_combined <- apply(combined_matrix, 2, var, na.rm = TRUE)
+      zero_var_combined <- which(col_vars_combined < 1e-10 | is.na(col_vars_combined))
+      if (length(zero_var_combined) > 0) {
+        cat(sprintf("          [INFO] Removing %d constant/zero-variance columns from combined matrix\n",
+          length(zero_var_combined)))
+        combined_matrix <- combined_matrix[, -zero_var_combined, drop = FALSE]
+      }
+
+      if (ncol(combined_matrix) < 2) {
+        cat(sprintf("          [SKIP] %s - fewer than 2 variable columns after filtering\n", covar))
+        next
+      }
+
       # Compute PCA on combined matrix
       pca_combined <- prcomp(combined_matrix, scale. = TRUE, center = TRUE)
 
