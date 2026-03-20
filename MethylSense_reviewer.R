@@ -3278,7 +3278,63 @@ if ("actual_class" %in% colnames(sample_metadata)) {
       cat(sprintf("            %s = %s\n", grp, group_colors[grp]))
     }
   } else {
-    cat("\n          [INFO] Using default Set1 color palette for PCA/UMAP plots\n")
+    # Try reading original group colors from analysis_settings.txt
+    # Structure: main_dir/analysis_settings.txt
+    #            main_dir/region_dir/model_type/markers_N/ <- opt$model_dir
+    settings_file <- file.path(dirname(dirname(dirname(opt$model_dir))), "analysis_settings.txt")
+    if (file.exists(settings_file)) {
+      cat(sprintf("\n          [INFO] Reading original analysis settings from: %s\n", basename(settings_file)))
+      settings_lines <- readLines(settings_file, warn = FALSE)
+
+      # Extract group names line: "  Group names: Name1,Name2,Name3"
+      gn_line <- grep("^\\s*Group names:", settings_lines, value = TRUE)
+      # Extract group colors line: "  Group colors: #HEX1,#HEX2,#HEX3"
+      gc_line <- grep("^\\s*Group colors:", settings_lines, value = TRUE)
+
+      if (length(gn_line) > 0 && length(gc_line) > 0) {
+        orig_group_names <- trimws(strsplit(sub(".*Group names:\\s*", "", gn_line[1]), ",")[[1]])
+        orig_group_colors <- trimws(strsplit(sub(".*Group colors:\\s*", "", gc_line[1]), ",")[[1]])
+
+        if (length(orig_group_names) == length(orig_group_colors) && length(orig_group_names) > 0) {
+          # Match original group names to actual group names in data
+          matched <- orig_group_names %in% group_names
+          if (sum(matched) > 0) {
+            group_colors <- setNames(orig_group_colors[matched], orig_group_names[matched])
+            # Add any groups in data but not in settings using Extended palette
+            missing_groups <- setdiff(group_names, names(group_colors))
+            if (length(missing_groups) > 0) {
+              extra_colors <- METHYLSENSE_COLORS$Extended[seq_along(missing_groups)]
+              group_colors <- c(group_colors, setNames(extra_colors, missing_groups))
+            }
+            cat("          [INFO] Restored original analysis colors from analysis_settings.txt:\n")
+            for (grp in names(group_colors)) {
+              cat(sprintf("            %s = %s\n", grp, group_colors[grp]))
+            }
+          }
+        }
+      }
+    }
+
+    # If still NULL, use METHYLSENSE_COLORS Extended palette with keyword matching
+    # (same logic as MethylSense_analysis.R auto-assign)
+    if (is.null(group_colors)) {
+      group_colors <- METHYLSENSE_COLORS$Extended[1:length(group_names)]
+      for (i in seq_along(group_names)) {
+        nm <- group_names[i]
+        if (grepl("Control|Ctrl|Healthy|Normal|Untreated|Mock|Baseline", nm, ignore.case = TRUE)) {
+          group_colors[i] <- METHYLSENSE_COLORS$Control
+        } else if (grepl("Infect|Case|Pos|Cancer|Tumor|Pathogen|Diseas|Asper", nm, ignore.case = TRUE)) {
+          group_colors[i] <- METHYLSENSE_COLORS$Infected
+        } else if (grepl("Suspect", nm, ignore.case = TRUE)) {
+          group_colors[i] <- METHYLSENSE_COLORS$Suspected
+        }
+      }
+      names(group_colors) <- group_names
+      cat("\n          [INFO] Auto-assigned colors from MethylSense palette:\n")
+      for (grp in names(group_colors)) {
+        cat(sprintf("            %s = %s\n", grp, group_colors[grp]))
+      }
+    }
   }
 }
 
@@ -4878,13 +4934,17 @@ if (ncol(meth_matrix_base) >= 2) {
     }
   }
 
-  # Ensure consistent legend order: controls first, then others
-  group_names_bio <- unique(pca_df_bio$biological_group)
-  group_names_bio <- group_names_bio[!is.na(group_names_bio)]
-  control_pattern <- "control|ctrl|healthy|normal|untreated|mock|baseline"
-  is_control_bio <- grepl(control_pattern, group_names_bio, ignore.case = TRUE)
-  # Order: controls first, then treatment/other groups
-  group_order <- c(group_names_bio[is_control_bio], group_names_bio[!is_control_bio])
+  # Ensure consistent legend order: use group_colors order if available, else controls first
+  if (!is.null(group_colors)) {
+    group_order <- names(group_colors)
+    group_order <- group_order[group_order %in% unique(pca_df_bio$biological_group)]
+  } else {
+    group_names_bio <- unique(pca_df_bio$biological_group)
+    group_names_bio <- group_names_bio[!is.na(group_names_bio)]
+    control_pattern <- "control|ctrl|healthy|normal|untreated|mock|baseline"
+    is_control_bio <- grepl(control_pattern, group_names_bio, ignore.case = TRUE)
+    group_order <- c(group_names_bio[is_control_bio], group_names_bio[!is_control_bio])
+  }
   if (length(group_order) > 0) {
     pca_df_bio$biological_group <- factor(pca_df_bio$biological_group, levels = group_order)
   }
@@ -4970,13 +5030,17 @@ if (ncol(meth_matrix_base) >= 2) {
     }
   }
 
-  # Ensure consistent legend order: controls first, then others
-  group_names_bio_u <- unique(umap_df_bio$biological_group)
-  group_names_bio_u <- group_names_bio_u[!is.na(group_names_bio_u)]
-  control_pattern_u <- "control|ctrl|healthy|normal|untreated|mock|baseline"
-  is_control_bio_u <- grepl(control_pattern_u, group_names_bio_u, ignore.case = TRUE)
-  # Order: controls first, then treatment/other groups
-  group_order <- c(group_names_bio_u[is_control_bio_u], group_names_bio_u[!is_control_bio_u])
+  # Ensure consistent legend order: use group_colors order if available, else controls first
+  if (!is.null(group_colors)) {
+    group_order <- names(group_colors)
+    group_order <- group_order[group_order %in% unique(umap_df_bio$biological_group)]
+  } else {
+    group_names_bio_u <- unique(umap_df_bio$biological_group)
+    group_names_bio_u <- group_names_bio_u[!is.na(group_names_bio_u)]
+    control_pattern_u <- "control|ctrl|healthy|normal|untreated|mock|baseline"
+    is_control_bio_u <- grepl(control_pattern_u, group_names_bio_u, ignore.case = TRUE)
+    group_order <- c(group_names_bio_u[is_control_bio_u], group_names_bio_u[!is_control_bio_u])
+  }
   if (length(group_order) > 0) {
     umap_df_bio$biological_group <- factor(umap_df_bio$biological_group, levels = group_order)
   }
