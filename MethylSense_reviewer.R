@@ -4878,9 +4878,13 @@ if (ncol(meth_matrix_base) >= 2) {
     }
   }
 
-  # Ensure consistent legend order: Control, Suspected, Infected
-  group_order <- c("Control", "Suspected", "Infected")
-  group_order <- group_order[group_order %in% unique(pca_df_bio$biological_group)]
+  # Ensure consistent legend order: controls first, then others
+  group_names_bio <- unique(pca_df_bio$biological_group)
+  group_names_bio <- group_names_bio[!is.na(group_names_bio)]
+  control_pattern <- "control|ctrl|healthy|normal|untreated|mock|baseline"
+  is_control_bio <- grepl(control_pattern, group_names_bio, ignore.case = TRUE)
+  # Order: controls first, then treatment/other groups
+  group_order <- c(group_names_bio[is_control_bio], group_names_bio[!is_control_bio])
   if (length(group_order) > 0) {
     pca_df_bio$biological_group <- factor(pca_df_bio$biological_group, levels = group_order)
   }
@@ -4897,8 +4901,15 @@ if (ncol(meth_matrix_base) >= 2) {
     group_colors_final <- if (!is.null(group_colors)) {
       group_colors
     } else {
-      gc <- c(METHYLSENSE_COLORS$Control, METHYLSENSE_COLORS$Suspected, METHYLSENSE_COLORS$Infected)
-      names(gc) <- c("Control", "Suspected", "Infected")
+      # Dynamic color assignment: green for controls, red/orange gradient for treatment groups
+      gc <- character(length(group_names_bio))
+      gc[is_control_bio] <- "#2E7D32"  # Dark green for controls
+      n_treatment <- sum(!is_control_bio)
+      if (n_treatment > 0) {
+        treatment_colors <- colorRampPalette(c("#D32F2F", "#FF6F00"))(n_treatment)
+        gc[!is_control_bio] <- treatment_colors
+      }
+      names(gc) <- group_names_bio
       gc
     }
 
@@ -4959,9 +4970,13 @@ if (ncol(meth_matrix_base) >= 2) {
     }
   }
 
-  # Ensure consistent legend order: Control, Suspected, Infected
-  group_order <- c("Control", "Suspected", "Infected")
-  group_order <- group_order[group_order %in% unique(umap_df_bio$biological_group)]
+  # Ensure consistent legend order: controls first, then others
+  group_names_bio_u <- unique(umap_df_bio$biological_group)
+  group_names_bio_u <- group_names_bio_u[!is.na(group_names_bio_u)]
+  control_pattern_u <- "control|ctrl|healthy|normal|untreated|mock|baseline"
+  is_control_bio_u <- grepl(control_pattern_u, group_names_bio_u, ignore.case = TRUE)
+  # Order: controls first, then treatment/other groups
+  group_order <- c(group_names_bio_u[is_control_bio_u], group_names_bio_u[!is_control_bio_u])
   if (length(group_order) > 0) {
     umap_df_bio$biological_group <- factor(umap_df_bio$biological_group, levels = group_order)
   }
@@ -4976,8 +4991,15 @@ if (ncol(meth_matrix_base) >= 2) {
     group_colors_final <- if (!is.null(group_colors)) {
       group_colors
     } else {
-      gc <- c(METHYLSENSE_COLORS$Control, METHYLSENSE_COLORS$Suspected, METHYLSENSE_COLORS$Infected)
-      names(gc) <- c("Control", "Suspected", "Infected")
+      # Dynamic color assignment: green for controls, red/orange gradient for treatment groups
+      gc <- character(length(group_names_bio_u))
+      gc[is_control_bio_u] <- "#2E7D32"  # Dark green for controls
+      n_treatment <- sum(!is_control_bio_u)
+      if (n_treatment > 0) {
+        treatment_colors <- colorRampPalette(c("#D32F2F", "#FF6F00"))(n_treatment)
+        gc[!is_control_bio_u] <- treatment_colors
+      }
+      names(gc) <- group_names_bio_u
       gc
     }
 
