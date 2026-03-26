@@ -5,7 +5,7 @@
 # ================================================================================
 #
 # Script Name: MethylSense_analysis.R
-# Version: 5.6.6 (Public Release)
+# Version: 5.7.0 (Public Release)
 # Date: 2026-01-22
 # GitHub: https://github.com/markusdrag/MethylSense
 # Authors: Markus Hodal Drag, Christina Hvilsom, Louise Ladefoged Poulsen,
@@ -47,6 +47,12 @@
 # ================================================================================
 # VERSION HISTORY
 # ================================================================================
+# v5.7.0 (2026-03-23) - THEME OVERHAUL & UK ENGLISH
+#   UPDATED: New hrbrthemes-based theme_methylsense() for publication-ready plots
+#   UPDATED: All plot text converted to sentence case (no more Title Case)
+#   UPDATED: All user-facing text converted to UK English
+#   UPDATED: Shared theme sourced from MethylSense_theme.R
+#
 # v5.6.4 (2026-01-30) - ROC PLOT FIX
 #   FIXED: ROC curves now generate successfully during cross-validation
 #   FIXED: Replaced theme_methylsense() with theme_minimal() in both binary and multiclass ROC plots
@@ -198,7 +204,7 @@
 # ================================================================================
 
 # Script version for logging
-SCRIPT_VERSION <- "5.6.6"
+SCRIPT_VERSION <- "5.7.0"
 SCRIPT_DATE <- "2026-01-30"
 
 cat("\n")
@@ -223,7 +229,7 @@ cat("  * 10 machine learning algorithms (RF, SVM, XGBoost, etc.)\n")
 cat("  * Cross-validation with 95% confidence intervals\n")
 cat("  * Nested CV for unbiased performance estimation\n")
 cat("  * Custom group names and publication-ready colors\n")
-cat("  * Comprehensive visualization suite\n")
+cat("  * Comprehensive visualisation suite\n")
 cat("  * Species-agnostic methylation biomarker discovery\n")
 cat("\n")
 cat("Please cite:\n")
@@ -244,22 +250,22 @@ show_help <- function() {
   cat(paste0("                      METHYLSENSE ", SCRIPT_VERSION, " - HELP GUIDE                          \n"))
   cat("================================================================================\n")
   cat("\n")
-  cat("DESCRIPTION:\n")
+  cat("Description:\n")
   cat("  MethylSense detects differentially methylated regions (DMRs) from Nanopore\n")
   cat("  bisulfite sequencing data and trains machine learning classifiers for\n")
   cat("  epigenetic diagnostics and biomarker discovery.\n")
   cat("\n")
-  cat("USAGE:\n")
+  cat("Usage:\n")
   cat("  Rscript MethylSense.R --qs_file <file> --output_dir <dir> [OPTIONS]\n")
   cat("\n")
   cat("================================================================================\n")
-  cat("REQUIRED ARGUMENTS:\n")
+  cat("Required arguments:\n")
   cat("================================================================================\n")
   cat("  --qs_file FILE        Path to methylRawList .qs file\n")
   cat("  --output_dir DIR      Output directory for results\n")
   cat("\n")
   cat("================================================================================\n")
-  cat("CORE ANALYSIS OPTIONS:\n")
+  cat("Core analysis options:\n")
   cat("================================================================================\n")
   cat("  --bed_files FILE1,FILE2,...\n")
   cat("                        Comma-separated BED files for genomic windows\n")
@@ -270,7 +276,7 @@ show_help <- function() {
   cat("  --min_accuracy N      Minimum accuracy to save models [default: 0.7]\n")
   cat("\n")
   cat("================================================================================\n")
-  cat("TREATMENT GROUP OPTIONS:\n")
+  cat("Treatment group options:\n")
   cat("================================================================================\n")
   cat("  --group_names NAME1,NAME2,...\n")
   cat("                        Custom group names (comma-separated, sets plot order)\n")
@@ -299,7 +305,7 @@ show_help <- function() {
   cat("  --allow_small_groups  Allow groups with fewer samples (risky)\n")
   cat("\n")
   cat("================================================================================\n")
-  cat("VALIDATION OPTIONS:\n")
+  cat("Validation options:\n")
   cat("================================================================================\n")
   cat("  --cv_repeats N        Number of CV repeats (0=disabled, 5-10 recommended)\n")
   cat("                        Always runs regular CV for quick validation\n")
@@ -318,7 +324,7 @@ show_help <- function() {
   cat("    Both saved:  Compare to estimate optimism bias\n")
   cat("\n")
   cat("================================================================================\n")
-  cat("DMR FILTERING OPTIONS:\n")
+  cat("DMR filtering options:\n")
   cat("================================================================================\n")
   cat("  --qvalue_threshold N  Q-value threshold for DMR significance [default: 0.05]\n")
   cat("  --min_coverage N      Minimum read coverage per CpG [default: 20]\n")
@@ -332,16 +338,16 @@ show_help <- function() {
   cat("                        Filter to standard chromosomes only (1-99 + sex)\n")
   cat("\n")
   cat("================================================================================\n")
-  cat("FEATURE SELECTION OPTIONS:\n")
+  cat("Feature selection options:\n")
   cat("================================================================================\n")
   cat("  --max_markers N       Maximum DMRs as features [default: 100]\n")
   cat("  --min_markers N       Minimum DMRs to start training [default: 8]\n")
   cat("  --marker_step N       Step size for marker iteration [default: 1]\n")
   cat("\n")
   cat("================================================================================\n")
-  cat("OUTPUT OPTIONS:\n")
+  cat("Output options:\n")
   cat("================================================================================\n")
-  cat("  --create_plots        Generate visualizations [default: TRUE]\n")
+  cat("  --create_plots        Generate visualisations [default: TRUE]\n")
   cat("  --no_plots            Disable plot generation\n")
   cat("  --plot_format FORMAT  Output format: png, jpeg, svg, or 'all'\n")
   cat("                        Multiple formats: 'png,svg' [default: png]\n")
@@ -350,7 +356,7 @@ show_help <- function() {
   cat("                        Recommended: 300 (standard), 600 (high-res), 150 (draft)\n")
   cat("\n")
   cat("================================================================================\n")
-  cat("OTHER OPTIONS:\n")
+  cat("Other options:\n")
   cat("================================================================================\n")
   cat("  --reproducible        Fixed seeds for reproducibility [default: FALSE]\n")
   cat("  --force_ml            Force re-run even if cached results exist\n")
@@ -361,7 +367,7 @@ show_help <- function() {
   cat("  --list-models         Show available ML models and categories\n")
   cat("\n")
   cat("================================================================================\n")
-  cat("QUICK START EXAMPLES:\n")
+  cat("Quick start examples:\n")
   cat("================================================================================\n")
   cat("\n")
   cat("1. Basic analysis:\n")
@@ -420,7 +426,7 @@ show_help <- function() {
   cat("      --exclude_sex_chroms --group_names Control,Disease\n")
   cat("\n")
   cat("================================================================================\n")
-  cat("COLOR RECOMMENDATIONS FOR PUBLICATIONS:\n")
+  cat("Colour recommendations for publications:\n")
   cat("================================================================================\n")
   cat("  Two groups (colorblind-safe):\n")
   cat("    Control vs Disease:  --group_colors '#4575b4,#d73027' (blue/red)\n")
@@ -450,7 +456,7 @@ show_help <- function() {
 
 show_output_structure <- function() {
   cat("================================================================================\n")
-  cat("OUTPUT DIRECTORY STRUCTURE:\n")
+  cat("Output directory structure:\n")
   cat("================================================================================\n")
   cat("\n")
   cat("output_dir/\n")
@@ -550,7 +556,7 @@ show_output_structure <- function() {
   cat("    +-- unmatched_samples_[region].csv\n")
   cat("        # Samples that couldn't be matched (if using --train_test_file)\n")
   cat("\n")
-  cat("KEY FILES FOR PUBLICATION:\n")
+  cat("Key files for publication:\n")
   cat("  - cv_summary_*.csv        : Mean performance +/- 95% CI\n")
   cat("  - nested_cv_summary_*.csv : Unbiased performance estimates\n")
   cat("  - metrics.csv             : Single train/test performance\n")
@@ -638,80 +644,15 @@ suppressPackageStartupMessages({
 # METHYLSENSE GLOBAL THEME CONFIGURATION
 # ================================================================================
 
-# Color palette - Dark Green / Teal / Deep Purple theme (publication-ready)
-METHYLSENSE_COLORS <- list(
-  # Primary group colors
-  Control = "#1B5E20", # Dark forest green
-  Suspected = "#006064", # Dark teal/cyan
-  Infected = "#4A148C", # Deep purple
-  Case = "#4A148C", # Alias for Infected
-
-  # Extended palette for multi-group designs
-  Extended = c("#1B5E20", "#006064", "#4A148C", "#B71C1C", "#E65100"),
-
-  # Accent colors for specific plot elements
-  Hyper = "#D32F2F", # Red for hypermethylated
-  Hypo = "#1976D2", # Blue for hypomethylated
-  Neutral = "#757575", # Gray for neutral/non-significant
-
-  # Ribbon/fill colors (lighter versions)
-  Control_light = "#A5D6A7",
-  Suspected_light = "#80DEEA",
-  Infected_light = "#CE93D8"
-)
-
-# Global ggplot2 theme with Helvetica and significantly larger text
-theme_methylsense <- function(base_size = 14) {
-  # Standard font is Helvetica, fallback to sans if unavailable
-  font_family <- "Helvetica"
-  tryCatch(
-    {
-      if (!requireNamespace("extrafont", quietly = TRUE) || !("Helvetica" %in% extrafont::fonts())) {
-        font_family <- "sans"
-      }
-    },
-    error = function(e) font_family <- "sans"
-  )
-
-  theme_minimal(base_size = base_size) +
-    theme(
-      # Font family
-      text = element_text(family = font_family),
-
-      # Title styling - MUCH LARGER
-      plot.title = element_text(face = "bold", size = base_size + 6, color = "#1A1A1A"),
-      plot.subtitle = element_text(size = base_size + 2, color = "#4A4A4A"),
-
-      # Axis styling - LARGER text
-      axis.title = element_text(face = "bold", size = base_size + 2),
-      axis.text = element_text(size = base_size, color = "#2A2A2A", face = "bold"),
-      axis.title.x = element_text(margin = margin(t = 15)),
-      axis.title.y = element_text(margin = margin(r = 15)),
-
-      # Ticks
-      axis.ticks = element_line(color = "black"),
-      axis.ticks.length = unit(0.2, "cm"),
-
-      # Legend styling - LARGER text
-      legend.title = element_text(face = "bold", size = base_size + 2),
-      legend.text = element_text(size = base_size + 1),
-      legend.key.size = unit(1.5, "lines"),
-
-      # Panel styling
-      panel.grid.minor = element_blank(),
-      panel.grid.major = element_line(color = "#D0D0D0", linewidth = 0.5),
-      panel.border = element_rect(fill = NA, color = "black", linewidth = 1),
-      plot.background = element_rect(fill = "white", color = NA),
-      panel.background = element_rect(fill = "white", color = NA),
-
-      # Strip styling for faceted plots
-      strip.text = element_text(face = "bold", size = base_size + 2),
-      strip.background = element_rect(fill = "#EEEEEE", color = "black", linewidth = 0.5),
-
-      # Plot margins
-      plot.margin = margin(20, 20, 20, 20)
-    )
+# Source shared MethylSense theme and colour palette (Rscript-safe path)
+cmd_args_theme <- commandArgs(trailingOnly = FALSE)
+file_arg_theme <- grep("^--file=", cmd_args_theme, value = TRUE)
+script_dir_theme <- if (length(file_arg_theme)) {
+  dirname(normalizePath(sub("^--file=", "", file_arg_theme[1]), mustWork = FALSE))
+} else {
+  getwd()
 }
+source(file.path(script_dir_theme, "MethylSense_theme.R"))
 
 # NOTE: Reproducibility settings moved to after option parsing
 # so they can be controlled by --reproducible flag
@@ -1297,7 +1238,7 @@ extract_cpg_details <- function(meth_list, dmr_df, treatment_vector, group_names
   n_samples <- length(meth_list)
   n_dmrs <- nrow(dmr_df)
 
-  log_msg(paste("  DMRs to analyze:", n_dmrs))
+  log_msg(paste("  DMRs to analyse:", n_dmrs))
   log_msg(paste("  Samples:", n_samples))
   log_msg(paste("  Groups:", paste(group_names, collapse = " vs ")))
 
@@ -1500,7 +1441,7 @@ extract_cpg_details <- function(meth_list, dmr_df, treatment_vector, group_names
 
   log_msg("")
   log_msg("================================================================================")
-  log_msg("CPG-LEVEL EXTRACTION COMPLETE")
+  log_msg("CpG-level extraction complete")
   log_msg(paste("  Unique CpG positions:", nrow(cpg_stats)))
   log_msg(paste("  DMRs with CpG data:", length(unique(cpg_stats$dmr_id))))
   log_msg(paste("  Elapsed time:", elapsed, "minutes"))
@@ -1567,11 +1508,11 @@ generate_cpg_manhattan <- function(cpg_stats, output_dir, plot_formats = c("jpeg
     ggplot2::geom_hline(yintercept = c(-10, 10), color = "gray50", linetype = "dashed", alpha = 0.7) +
     ggplot2::geom_hline(yintercept = c(-20, 20), color = "gray30", linetype = "dashed", alpha = 0.7) +
     ggplot2::labs(
-      title = "CpG-Level Methylation Difference Manhattan Plot",
+      title = "CpG-level methylation difference",
       subtitle = paste("DMR CpGs:", nrow(plot_data), "| Dashed lines: ±10%, ±20% methylation difference"),
-      x = "Chromosome", y = "Methylation Difference (%)"
+      x = "Chromosome", y = "Methylation difference (%)"
     ) +
-    ggplot2::theme_minimal() +
+    theme_methylsense() +
     ggplot2::theme(
       axis.text.x = ggplot2::element_text(angle = 45, hjust = 1, size = 8),
       plot.title = ggplot2::element_text(hjust = 0.5, face = "bold"),
@@ -1585,7 +1526,7 @@ generate_cpg_manhattan <- function(cpg_stats, output_dir, plot_formats = c("jpeg
   }
 
   log_msg(paste("[CpG] Saved Manhattan plot in formats:", paste(plot_formats, collapse = ", ")))
-  return(p)
+  return(invisible(NULL))
 }
 
 
@@ -1596,14 +1537,14 @@ generate_cpg_manhattan <- function(cpg_stats, output_dir, plot_formats = c("jpeg
 #' @param all_dmrs_path Path to ALL_DMRs.csv file
 #' @param output_dir Directory to save the plot
 #' @param plot_formats Vector of formats to save (png, svg)
-generate_dmr_manhattan <- function(all_dmrs_path, output_dir, plot_formats = c("png", "svg")) {
+generate_dmr_manhattan <- function(all_dmrs_path, output_dir, plot_formats = c("png")) {
   if (!file.exists(all_dmrs_path)) {
     log_msg("[WARN] ALL_DMRs.csv not found, skipping DMR Manhattan plot")
     return(NULL)
   }
 
   log_msg("================================================================================")
-  log_msg("GENERATING GENOME-WIDE DMR MANHATTAN PLOT")
+  log_msg("Generating genome-wide DMR Manhattan plot")
 
   dmrs <- read.csv(all_dmrs_path, stringsAsFactors = FALSE)
 
@@ -1696,12 +1637,12 @@ generate_dmr_manhattan <- function(all_dmrs_path, output_dir, plot_formats = c("
     ggplot2::geom_hline(yintercept = -log10(0.05), color = "red", linetype = "dashed", alpha = 0.7) +
     ggplot2::geom_hline(yintercept = -log10(0.01), color = "darkred", linetype = "dashed", alpha = 0.7) +
     ggplot2::labs(
-      title = "Genome-Wide DMR Manhattan Plot",
+      title = "Genome-wide DMR significance",
       subtitle = paste("Total DMRs:", nrow(plot_data), "| Red lines: FDR 0.05, 0.01"),
       x = "Chromosome",
       y = ifelse(p_col %in% c("qvalue", "q-value", "adj.P.Val"), expression(-log[10](FDR)), expression(-log[10](p - value)))
     ) +
-    ggplot2::theme_minimal() +
+    theme_methylsense() +
     ggplot2::theme(
       axis.text.x = ggplot2::element_text(angle = 45, hjust = 1, size = 8),
       plot.title = ggplot2::element_text(hjust = 0.5, face = "bold"),
@@ -1716,7 +1657,91 @@ generate_dmr_manhattan <- function(all_dmrs_path, output_dir, plot_formats = c("
 
   log_msg("[Plot] Saved Genome-Wide DMR Manhattan plot")
   log_msg("================================================================================")
-  return(p)
+  return(invisible(NULL))
+}
+
+#' Resolve group colours for CpG profile plots (same logic as the rest of the pipeline).
+#'
+#' Order matches \code{group_names}. Uses, in order: \code{--group_colors};
+#' \code{treatment_processed$group_colors}; global \code{group_colors_list};
+#' \code{analysis_settings.txt} line \code{Group colors:}; else MethylSense palette
+#' (Control / Suspected / Infected keywords).
+#'
+#' @param group_names Character vector in display order (e.g. from \code{--group_names}).
+#' @param output_dir Analysis output directory containing \code{analysis_settings.txt}.
+#' @param opt_group_colors Raw \code{--group_colors} string or NULL.
+#' @return Character vector of hex colours, length \code{length(group_names)}.
+resolve_cpg_group_colors <- function(group_names, output_dir, opt_group_colors = NULL) {
+  group_names <- trimws(as.character(group_names))
+  n <- length(group_names)
+  if (n < 1) {
+    return(NULL)
+  }
+
+  fill_methylsense_by_name <- function(gnames) {
+    cols <- METHYLSENSE_COLORS$Extended[seq_along(gnames)]
+    for (i in seq_along(gnames)) {
+      nm <- gnames[i]
+      if (grepl("Control", nm, ignore.case = TRUE)) {
+        cols[i] <- METHYLSENSE_COLORS$Control
+      } else if (grepl("Infect|Asper", nm, ignore.case = TRUE)) {
+        cols[i] <- METHYLSENSE_COLORS$Infected
+      } else if (grepl("Suspect", nm, ignore.case = TRUE)) {
+        cols[i] <- METHYLSENSE_COLORS$Suspected
+      }
+    }
+    cols
+  }
+
+  if (!is.null(opt_group_colors) && nzchar(as.character(opt_group_colors))) {
+    cols <- trimws(strsplit(as.character(opt_group_colors), ",")[[1]])
+    if (length(cols) >= n) {
+      return(cols[seq_len(n)])
+    }
+  }
+
+  if (exists("treatment_processed", envir = .GlobalEnv)) {
+    tp <- get("treatment_processed", envir = .GlobalEnv)
+    if (!is.null(tp$group_colors) && length(tp$group_colors) > 0) {
+      gc <- tp$group_colors
+      if (!is.null(names(gc)) && any(nzchar(names(gc)))) {
+        resolved <- unname(gc[group_names])
+        if (any(is.na(resolved))) {
+          fb <- fill_methylsense_by_name(group_names[is.na(resolved)])
+          resolved[is.na(resolved)] <- fb
+        }
+        return(resolved)
+      }
+      if (is.null(names(gc)) && length(gc) >= n) {
+        return(as.character(gc[seq_len(n)]))
+      }
+    }
+  }
+
+  if (exists("group_colors_list", envir = .GlobalEnv)) {
+    gcl <- get("group_colors_list", envir = .GlobalEnv)
+    if (!is.null(gcl) && length(gcl) > 0 && !is.null(names(gcl)) && all(group_names %in% names(gcl))) {
+      return(unname(gcl[group_names]))
+    }
+  }
+
+  settings_path <- file.path(output_dir, "analysis_settings.txt")
+  if (file.exists(settings_path)) {
+    lines <- readLines(settings_path, warn = FALSE)
+    idx <- grep("Group colors:", lines, fixed = TRUE)
+    if (length(idx) > 0) {
+      val <- trimws(sub("^[^:]*:\\s*", "", lines[idx[1]]))
+      if (nzchar(val) && !grepl("^\\(", val)) {
+        cols <- trimws(strsplit(val, ",")[[1]])
+        cols <- cols[nzchar(cols)]
+        if (length(cols) >= n) {
+          return(cols[seq_len(n)])
+        }
+      }
+    }
+  }
+
+  fill_methylsense_by_name(group_names)
 }
 
 
@@ -1758,10 +1783,19 @@ generate_cpg_barplot <- function(cpg_stats, target_dmr_id, dmr_number, output_di
 
   n_groups <- length(group_names)
 
-  # Default colors if not provided
+  # Default colours: MethylSense palette (not generic ColorBrewer blue/red/green)
   if (is.null(group_colors) || length(group_colors) < n_groups) {
-    default_palette <- c("#2166AC", "#B2182B", "#4DAF4A", "#984EA3", "#FF7F00", "#FFFF33", "#A65628", "#F781BF")
-    group_colors <- default_palette[seq_len(n_groups)]
+    group_colors <- METHYLSENSE_COLORS$Extended[seq_len(n_groups)]
+    for (i in seq_len(n_groups)) {
+      nm <- group_names[i]
+      if (grepl("Control", nm, ignore.case = TRUE)) {
+        group_colors[i] <- METHYLSENSE_COLORS$Control
+      } else if (grepl("Infect|Asper", nm, ignore.case = TRUE)) {
+        group_colors[i] <- METHYLSENSE_COLORS$Infected
+      } else if (grepl("Suspect", nm, ignore.case = TRUE)) {
+        group_colors[i] <- METHYLSENSE_COLORS$Suspected
+      }
+    }
   }
 
   # Create long-format data for all groups dynamically
@@ -1820,14 +1854,14 @@ generate_cpg_barplot <- function(cpg_stats, target_dmr_id, dmr_number, output_di
     ggplot2::scale_x_continuous(breaks = seq_len(n_cpgs), labels = seq_len(n_cpgs)) +
     ggplot2::scale_y_continuous(limits = c(0, 105), breaks = seq(0, 100, 25)) +
     ggplot2::labs(
-      title = paste0("DMR #", dmr_number, ": CpG Methylation Profile"),
+      title = paste0("DMR #", dmr_number, ": CpG methylation profile"),
       subtitle = paste0(
         "chr", chr, ":", format(dmr_start, big.mark = ","), "-", format(dmr_end, big.mark = ","),
         " | ", n_cpgs, " CpGs | Mean Δ: ", mean_effect, "% | AUC: ", mean_auc
       ),
-      x = "CpG Position", y = "Methylation (%) +/- SD", color = "Group", fill = "Group"
+      x = "CpG position", y = "Methylation (%) \u00B1 SD", colour = "Group", fill = "Group"
     ) +
-    ggplot2::theme_minimal() +
+    theme_methylsense() +
     ggplot2::theme(
       plot.title = ggplot2::element_text(hjust = 0.5, face = "bold", size = 12),
       plot.subtitle = ggplot2::element_text(hjust = 0.5, size = 9, color = "gray40"),
@@ -1845,7 +1879,7 @@ generate_cpg_barplot <- function(cpg_stats, target_dmr_id, dmr_number, output_di
     ggplot2::scale_fill_manual(values = c("Hyper" = "#D73027", "Hypo" = "#4575B4")) +
     ggplot2::scale_x_continuous(breaks = seq_len(n_cpgs), labels = paste0("", seq_len(n_cpgs))) +
     ggplot2::labs(x = NULL, y = "Meth diff (%)", fill = NULL) +
-    ggplot2::theme_minimal() +
+    theme_methylsense() +
     ggplot2::theme(
       legend.position = "right",
       legend.key.size = ggplot2::unit(0.4, "cm"),
@@ -1965,13 +1999,20 @@ parse_gtf_region <- function(gtf_file, chr, start, end) {
     return(NULL)
   }
 
-  target_chr <- gsub("^chr", "", chr)
-  gtf$chr_norm <- gsub("^chr", "", gtf$chr)
+  target_chr <- gsub("^chr", "", as.character(chr))
+  gtf$chr_norm <- gsub("^chr", "", as.character(gtf$chr))
 
-  gtf_overlap <- gtf[chr_norm == target_chr &
-    as.numeric(start) <= end &
-    as.numeric(gtf$end) >= start]
+  ov <- function(g, tchr, s, e) {
+    g[ g$chr_norm == tchr &
+      as.numeric(g$start) <= e &
+      as.numeric(g$end) >= s, , drop = FALSE]
+  }
 
+  gtf_overlap <- ov(gtf, target_chr, start, end)
+  # Alternate naming (e.g. DMR "1" vs GTF "chr1" already normalised; try chrM/MT)
+  if (nrow(gtf_overlap) == 0 && target_chr %in% c("M", "MT")) {
+    gtf_overlap <- ov(gtf, ifelse(target_chr == "M", "MT", "M"), start, end)
+  }
   if (nrow(gtf_overlap) == 0) {
     return(NULL)
   }
@@ -2023,30 +2064,39 @@ create_gene_track_plot <- function(gtf_data, dmr_start, dmr_end, n_cpgs, gtf_fil
   # Create label showing GTF source file
   gtf_label <- if (!is.null(gtf_file)) paste0("Annotations: ", basename(gtf_file)) else ""
 
-  # Empty data handler
-  if (is.null(gtf_data) || nrow(gtf_data) == 0) {
-    no_annot_msg <- if (gtf_label != "") {
-      paste0("No annotations in this region\n(", gtf_label, ")")
-    } else {
-      "No annotations in this region"
-    }
-    p <- ggplot2::ggplot() +
+  # Empty / no-overlap handler — x limits MUST match CpG panels above (patchwork aligns widths)
+  empty_gene_panel <- function(msg) {
+    xc <- (n_cpgs + 1) / 2
+    ggplot2::ggplot() +
       ggplot2::annotate("text",
-        x = 0.5, y = 0.5,
-        label = no_annot_msg,
-        color = "gray60", size = 3.5, fontface = "italic"
+        x = xc, y = 0.5,
+        label = msg,
+        color = "gray60", size = 3.2, fontface = "italic"
       ) +
+      ggplot2::scale_x_continuous(limits = c(0.5, n_cpgs + 0.5), expand = c(0.02, 0)) +
+      ggplot2::scale_y_continuous(limits = c(0, 1), expand = c(0.08, 0.08)) +
+      ggplot2::labs(x = NULL, y = NULL) +
       ggplot2::theme_void() +
       ggplot2::theme(
         panel.background = ggplot2::element_rect(fill = "white", color = NA),
         plot.background = ggplot2::element_rect(fill = "white", color = NA)
       )
-    return(p)
+  }
+
+  if (is.null(gtf_data) || nrow(gtf_data) == 0) {
+    no_annot_msg <- if (gtf_label != "") {
+      paste0("No GTF features overlap this DMR\n(", gtf_label, ")")
+    } else {
+      "No GTF features overlap this DMR"
+    }
+    return(empty_gene_panel(no_annot_msg))
   }
 
   # Coordinate scaling function (genomic coords -> CpG plot coords)
   scale_pos <- function(pos) {
-    (pos - dmr_start) / (dmr_end - dmr_start) * n_cpgs + 0.5
+    span <- as.numeric(dmr_end) - as.numeric(dmr_start)
+    if (!is.finite(span) || span == 0) span <- 1
+    (pos - dmr_start) / span * n_cpgs + 0.5
   }
 
   # Ensure required columns exist
@@ -2093,6 +2143,19 @@ create_gene_track_plot <- function(gtf_data, dmr_start, dmr_end, n_cpgs, gtf_fil
         stringsAsFactors = FALSE
       )
     }))
+  }
+
+  # GTF can overlap the DMR with only UTR / intron / etc. — then nothing is drawn and axes look broken
+  has_drawable <- (nrow(genes) > 0) || (nrow(exons) > 0) || (nrow(cds) > 0) || (nrow(regulatory) > 0)
+  if (!has_drawable) {
+    msg <- paste0(
+      "GTF overlaps this DMR but has no drawable features here\n",
+      "(gene, transcript, exon, CDS, CpG_island, enhancer, promoter — ",
+      nrow(gtf_data), " other row(s) in overlap",
+      if (nzchar(gtf_label)) paste0(" | ", gtf_label) else "",
+      ")"
+    )
+    return(empty_gene_panel(msg))
   }
 
   # Assign Y-levels to genes to handle overlapping features
@@ -2189,7 +2252,7 @@ create_gene_track_plot <- function(gtf_data, dmr_start, dmr_end, n_cpgs, gtf_fil
     ggplot2::scale_x_continuous(limits = c(0.5, n_cpgs + 0.5), expand = c(0.02, 0)) +
     ggplot2::scale_y_continuous(limits = c(0.3, max_y + 0.7), expand = c(0, 0)) +
     ggplot2::labs(x = NULL, y = NULL, subtitle = gtf_label) +
-    ggplot2::theme_minimal() +
+    theme_methylsense() +
     ggplot2::theme(
       axis.text = ggplot2::element_blank(),
       axis.ticks = ggplot2::element_blank(),
@@ -2301,7 +2364,7 @@ create_gene_track_plot <- function(gtf_data, dmr_start, dmr_end, n_cpgs, gtf_fil
         label = g$display_label,
         size = 2.8, fontface = "bold.italic",
         fill = "white", alpha = 0.85,
-        label.size = 0, label.padding = ggplot2::unit(0.1, "lines")
+        label.padding = ggplot2::unit(0.1, "lines")
       )
     }
   }
@@ -2358,7 +2421,7 @@ generate_cpg_report <- function(meth_list, dmr_df, treatment_vector, output_dir,
 
   log_msg("")
   log_msg("================================================================================")
-  log_msg("CPG-LEVEL REPORT COMPLETE")
+  log_msg("CpG-level report complete")
   log_msg(paste("  Output directory:", cpg_dir))
   log_msg(paste("  TSV report:", basename(tsv_path)))
   log_msg(paste("  DMR CpG plots:", length(dmr_ids)))
@@ -3018,7 +3081,7 @@ if (!is.null(opt$`list-models`) && opt$`list-models`) {
 
   cat("\n[INFO] Usage Examples:\n")
   cat("  --models all                  # All 10 models\n")
-  cat("  --models biomarker           # Biomarker-optimized models\n")
+  cat("  --models biomarker           # Biomarker-optimised models\n")
   cat("  --models fast                # Fast models for quick testing\n")
   cat("  --models xgboost,rf,ranger   # Specific models\n")
   cat("\n")
@@ -4417,10 +4480,10 @@ plot_dmr_barplot <- function(dmrs, treatment_groups, output_dir, region_label, n
           title = paste("Top", n_markers, "DMRs -", region_label),
           subtitle = paste("Significance: *** p<0.001, ** p<0.01, * p<0.05"),
           x = "DMR ID",
-          y = "Methylation Difference (%)",
+          y = "Methylation difference (%)",
           fill = "Direction"
         ) +
-        theme_minimal() +
+        theme_methylsense() +
         theme(
           plot.title = element_text(size = 14, face = "bold"),
           plot.subtitle = element_text(size = 10),
@@ -4675,13 +4738,13 @@ plot_group_methylation_summary <- function(methylation_matrix, treatment_groups,
           drop = FALSE
         ) +
         labs(
-          title = paste("Methylation Distribution Across", n_markers, "Significant DMRs"),
+          title = paste("Methylation distribution across", n_markers, "significant DMRs"),
           subtitle = paste("Region:", region_label, "| Diamond = group mean"),
-          x = "Treatment Groups",
-          y = "Mean Methylation Level (%)",
+          x = "Treatment groups",
+          y = "Mean methylation level (%)",
           caption = paste("Based on", n_markers, "top DMRs | n =", table(violin_data$Group)[1], "per group")
         ) +
-        theme_minimal() +
+        theme_methylsense() +
         theme(
           plot.title = element_text(size = 14, face = "bold", hjust = 0.5),
           plot.subtitle = element_text(size = 12, hjust = 0.5),
@@ -4851,12 +4914,12 @@ plot_roc_curves <- function(pred_prob, actual_labels, model_name, output_dir,
             size = 3.5, color = "gray40"
           ) +
           labs(
-            title = paste("Binary ROC Curve:", model_name),
+            title = paste("Binary ROC curve:", model_name),
             subtitle = paste(pos_class, "(target) vs", neg_class, "(reference) |", n_markers, "markers"),
             x = "1 - Specificity (FPR)",
             y = "Sensitivity (TPR)"
           ) +
-          theme_minimal() +
+          theme_methylsense() +
           theme(
             plot.title = element_text(size = 14, face = "bold"),
             legend.position = "none"
@@ -4947,17 +5010,17 @@ plot_roc_curves <- function(pred_prob, actual_labels, model_name, output_dir,
               drop = FALSE
             ) +
             labs(
-              title = paste("Multi-class ROC Curves:", model_name),
+              title = paste("Multi-class ROC curves:", model_name),
               subtitle = paste(
                 "One-vs-Rest |", n_markers, "markers | Mean AUC =",
                 round(mean(auc_values), 3)
               ),
               x = "1 - Specificity (FPR)",
               y = "Sensitivity (TPR)",
-              color = "Class (One-vs-Rest)",
-              linetype = "Class (One-vs-Rest)"
+              colour = "Class (one-vs-rest)",
+              linetype = "Class (one-vs-rest)"
             ) +
-            theme_minimal() +
+            theme_methylsense() +
             theme(
               plot.title = element_text(size = 14, face = "bold"),
               legend.position = "right",
@@ -5094,14 +5157,14 @@ plot_pr_curves <- function(pred_prob, actual_labels, model_name, output_dir,
             size = 4, color = pr_color, fontface = "bold"
           ) +
           labs(
-            title = paste("Precision-Recall Curve -", model_name),
+            title = paste("Precision-recall curve:", model_name),
             subtitle = paste(region_label, "|", n_markers, "markers |", pos_class, "vs", neg_class),
-            x = "Recall (Sensitivity)",
+            x = "Recall (sensitivity)",
             y = "Precision (PPV)"
           ) +
           scale_x_continuous(limits = c(0, 1), expand = c(0.01, 0.01)) +
           scale_y_continuous(limits = c(0, 1), expand = c(0.01, 0.01)) +
-          theme_minimal() +
+          theme_methylsense() +
           theme(
             plot.title = element_text(size = 14, face = "bold"),
             plot.subtitle = element_text(size = 10),
@@ -5162,20 +5225,20 @@ plot_pr_curves <- function(pred_prob, actual_labels, model_name, output_dir,
           scale_color_manual(
             values = color_palette,
             labels = paste0(group_names_ordered, " (PR-AUC=", round(pr_auc_values[group_names_ordered], 3), ")"),
-            name = "Class (One-vs-Rest)"
+            name = "Class (one-vs-rest)"
           ) +
           labs(
-            title = paste("Precision-Recall Curves -", model_name),
+            title = paste("Precision-recall curves:", model_name),
             subtitle = paste(
               "One-vs-Rest |", n_markers, "markers | Mean PR-AUC =",
               round(mean_pr_auc, 3)
             ),
-            x = "Recall (Sensitivity)",
+            x = "Recall (sensitivity)",
             y = "Precision (PPV)"
           ) +
           scale_x_continuous(limits = c(0, 1), expand = c(0.01, 0.01)) +
           scale_y_continuous(limits = c(0, 1), expand = c(0.01, 0.01)) +
-          theme_minimal() +
+          theme_methylsense() +
           theme(
             plot.title = element_text(size = 14, face = "bold"),
             plot.subtitle = element_text(size = 10),
@@ -5378,7 +5441,7 @@ plot_prediction_probabilities <- function(pred_prob, actual_labels, model_name,
               ) +
               scale_x_continuous(limits = c(0, 1), expand = c(0, 0)) +
               labs(
-                title = paste("Prediction Probability Distributions:", model_name),
+                title = paste("Prediction probability distributions:", model_name),
                 subtitle = paste(
                   n_markers, "markers |", region_label,
                   if (length(missing_classes) > 0) {
@@ -5390,11 +5453,11 @@ plot_prediction_probabilities <- function(pred_prob, actual_labels, model_name,
                     ""
                   }
                 ),
-                x = "Prediction Probability",
-                y = "Predicted Class",
-                fill = "Actual Class"
+                x = "Prediction probability",
+                y = "Predicted class",
+                fill = "Actual class"
               ) +
-              theme_minimal() +
+              theme_methylsense() +
               theme(
                 plot.title = element_text(size = 14, face = "bold"),
                 plot.subtitle = element_text(size = 10),
@@ -5469,7 +5532,7 @@ plot_prediction_probabilities <- function(pred_prob, actual_labels, model_name,
                 scale_x_continuous(limits = c(0, 1), expand = c(0, 0)) +
                 labs(
                   title = paste(
-                    "Prediction Probability Distributions (with points):",
+                    "Prediction probability distributions (with points):",
                     model_name
                   ),
                   subtitle = paste(
@@ -5484,11 +5547,11 @@ plot_prediction_probabilities <- function(pred_prob, actual_labels, model_name,
                       ""
                     }
                   ),
-                  x = "Prediction Probability",
-                  y = "Predicted Class",
-                  fill = "Actual Class"
+                  x = "Prediction probability",
+                  y = "Predicted class",
+                  fill = "Actual class"
                 ) +
-                theme_minimal() +
+                theme_methylsense() +
                 theme(
                   plot.title = element_text(size = 14, face = "bold"),
                   plot.subtitle = element_text(size = 9),
@@ -5549,19 +5612,19 @@ plot_prediction_probabilities <- function(pred_prob, actual_labels, model_name,
                 scale_x_continuous(limits = c(0, 1), expand = c(0, 0)) +
                 labs(
                   title = paste(
-                    "Prediction Probability Distributions (with points):",
+                    "Prediction probability distributions (with points):",
                     model_name
                   ),
                   subtitle = paste(
                     n_markers, "markers |", region_label,
                     "| Points show individual samples"
                   ),
-                  x = "Prediction Probability",
-                  y = "Predicted Class",
-                  fill = "Actual Class",
-                  color = "Actual Class"
+                  x = "Prediction probability",
+                  y = "Predicted class",
+                  fill = "Actual class",
+                  colour = "Actual class"
                 ) +
-                theme_minimal() +
+                theme_methylsense() +
                 theme(
                   plot.title = element_text(size = 14, face = "bold"),
                   legend.position = "bottom"
@@ -5618,13 +5681,13 @@ plot_prediction_probabilities <- function(pred_prob, actual_labels, model_name,
               drop = FALSE
             ) +
             labs(
-              title = paste("Prediction Probability Distributions:", model_name),
+              title = paste("Prediction probability distributions:", model_name),
               subtitle = paste(n_markers, "markers |", region_label),
-              x = "Predicted Class",
-              y = "Prediction Probability",
-              fill = "Actual Class"
+              x = "Predicted class",
+              y = "Prediction probability",
+              fill = "Actual class"
             ) +
-            theme_minimal() +
+            theme_methylsense() +
             theme(
               plot.title = element_text(size = 14, face = "bold"),
               axis.text.x = element_text(angle = 45, hjust = 1),
@@ -5717,16 +5780,16 @@ plot_prediction_probabilities <- function(pred_prob, actual_labels, model_name,
               alpha = 0.7
             ) +
             labs(
-              title = paste("Mean Prediction Probability by Class:", model_name),
+              title = paste("Mean prediction probability by class:", model_name),
               subtitle = paste(
                 n_markers, "markers |", region_label,
-                "| Error bars show +/- SE | Dashed line at 0.5"
+                "| Error bars show \u00B1 SE | Dashed line at 0.5"
               ),
-              x = "Predicted Class",
-              y = "Mean Prediction Probability",
-              fill = "Actual Class"
+              x = "Predicted class",
+              y = "Mean prediction probability",
+              fill = "Actual class"
             ) +
-            theme_minimal() +
+            theme_methylsense() +
             theme(
               plot.title = element_text(size = 14, face = "bold"),
               plot.subtitle = element_text(size = 9),
@@ -5776,13 +5839,13 @@ plot_prediction_probabilities <- function(pred_prob, actual_labels, model_name,
               drop = FALSE
             ) +
             labs(
-              title = paste("Prediction Confidence:", model_name),
+              title = paste("Prediction confidence:", model_name),
               subtitle = paste(n_markers, "markers |", region_label),
-              x = "Actual Class",
-              y = "Maximum Prediction Probability",
-              color = "Prediction"
+              x = "Actual class",
+              y = "Maximum prediction probability",
+              colour = "Prediction"
             ) +
-            theme_minimal() +
+            theme_methylsense() +
             theme(
               plot.title = element_text(size = 14, face = "bold"),
               axis.text.x = element_text(angle = 45, hjust = 1),
@@ -5826,10 +5889,10 @@ plot_standard_cv_results <- function(cv_result_regular,
     return(NULL)
   }
 
-  log_msg("[PLOT] Creating standard CV visualization suite...")
+  log_msg("[PLOT] Creating standard CV visualisation suite...")
 
   # Create standard CV output directory
-  standard_dir <- file.path(output_dir, "standard_cv_visualizations")
+  standard_dir <- file.path(output_dir, "standard_cv_visualisations")
   dir.create(standard_dir, showWarnings = FALSE, recursive = TRUE)
 
   plot_files <- list()
@@ -5901,16 +5964,16 @@ plot_standard_cv_results <- function(cv_result_regular,
         facet_wrap(~metric, scales = "free_y", nrow = 2) +
         scale_color_brewer(palette = "Set1") +
         labs(
-          title = paste("Standard CV Performance by Fold:", model_name),
+          title = paste("Standard CV performance by fold:", model_name),
           subtitle = paste(
             n_markers, "markers |", region_label,
             "| Dashed lines show mean across folds"
           ),
-          x = "CV Fold",
+          x = "CV fold",
           y = "Value",
-          color = "Metric"
+          colour = "Metric"
         ) +
-        theme_minimal() +
+        theme_methylsense() +
         theme(
           plot.title = element_text(size = 14, face = "bold"),
           legend.position = "none",
@@ -5959,7 +6022,7 @@ plot_standard_cv_results <- function(cv_result_regular,
         ) +
         scale_fill_manual(values = METHYLSENSE_COLORS$Extended) +
         labs(
-          title = paste("Standard CV Performance Distribution:", model_name),
+          title = paste("Standard CV performance distribution:", model_name),
           subtitle = paste(
             n_markers, "markers |", region_label,
             "| Diamond = mean, box = IQR, dots = individual folds"
@@ -5968,7 +6031,7 @@ plot_standard_cv_results <- function(cv_result_regular,
           y = "Value",
           fill = "Metric"
         ) +
-        theme_minimal() +
+        theme_methylsense() +
         theme(
           plot.title = element_text(size = 14, face = "bold"),
           axis.text.x = element_text(size = 12, face = "bold"),
@@ -6003,10 +6066,10 @@ plot_nested_cv_results <- function(cv_result_regular, cv_result_nested,
     return(NULL)
   }
 
-  log_msg("[PLOT] Creating nested CV visualization suite...")
+  log_msg("[PLOT] Creating nested CV visualisation suite...")
 
   # Create nested CV output directory
-  nested_dir <- file.path(output_dir, "nested_cv_visualizations")
+  nested_dir <- file.path(output_dir, "nested_cv_visualisations")
   dir.create(nested_dir, showWarnings = FALSE, recursive = TRUE)
 
   plot_files <- list()
@@ -6075,19 +6138,19 @@ plot_nested_cv_results <- function(cv_result_regular, cv_result_nested,
             )
           ) +
           labs(
-            title = paste("Cross-Validation Performance Comparison:", model_name),
+            title = paste("Cross-validation performance comparison:", model_name),
             subtitle = paste(
               n_markers, "markers |", region_label,
               "\nOptimism bias: Accuracy =", sprintf("%+.3f", bias_accuracy),
               "| Sensitivity =", sprintf("%+.3f", bias_sensitivity),
               "| Specificity =", sprintf("%+.3f", bias_specificity)
             ),
-            x = "Performance Metric (95% CI)",
+            x = "Performance metric (95% CI)",
             y = "",
-            color = "Method",
+            colour = "Method",
             shape = "Method"
           ) +
-          theme_minimal() +
+          theme_methylsense() +
           theme(
             plot.title = element_text(size = 14, face = "bold", hjust = 0.5),
             plot.subtitle = element_text(size = 10, hjust = 0.5),
@@ -6147,16 +6210,16 @@ plot_nested_cv_results <- function(cv_result_regular, cv_result_nested,
               size = 4, fontface = "bold"
             ) +
             labs(
-              title = paste("Nested CV ROC Curves:", model_name),
+              title = paste("Nested CV ROC curves:", model_name),
               subtitle = paste(
                 n_markers, "markers |", region_label,
                 "| Each curve is an independent outer fold"
               ),
-              x = "1 - Specificity (False Positive Rate)",
-              y = "Sensitivity (True Positive Rate)",
-              color = "Outer Fold"
+              x = "1 - Specificity (false positive rate)",
+              y = "Sensitivity (true positive rate)",
+              colour = "Outer fold"
             ) +
-            theme_minimal() +
+            theme_methylsense() +
             theme(
               plot.title = element_text(size = 14, face = "bold"),
               legend.position = "right"
@@ -6249,16 +6312,16 @@ plot_nested_cv_results <- function(cv_result_regular, cv_result_nested,
         facet_wrap(~metric, scales = "free_y", nrow = 2) +
         scale_color_brewer(palette = "Set1") +
         labs(
-          title = paste("Nested CV Performance by Outer Fold:", model_name),
+          title = paste("Nested CV performance by outer fold:", model_name),
           subtitle = paste(
             n_markers, "markers |", region_label,
             "| Dashed lines show mean across folds"
           ),
-          x = "Outer Fold",
+          x = "Outer fold",
           y = "Value",
-          color = "Metric"
+          colour = "Metric"
         ) +
-        theme_minimal() +
+        theme_methylsense() +
         theme(
           plot.title = element_text(size = 14, face = "bold"),
           legend.position = "none",
@@ -6285,7 +6348,7 @@ plot_nested_cv_results <- function(cv_result_regular, cv_result_nested,
         ) +
         scale_fill_manual(values = METHYLSENSE_COLORS$Extended) +
         labs(
-          title = paste("Nested CV Performance Distribution:", model_name),
+          title = paste("Nested CV performance distribution:", model_name),
           subtitle = paste(
             n_markers, "markers |", region_label,
             "| Diamond = mean, box = IQR, dots = individual folds"
@@ -6294,7 +6357,7 @@ plot_nested_cv_results <- function(cv_result_regular, cv_result_nested,
           y = "Value",
           fill = "Metric"
         ) +
-        theme_minimal() +
+        theme_methylsense() +
         theme(
           plot.title = element_text(size = 14, face = "bold"),
           axis.text.x = element_text(size = 12, face = "bold"),
@@ -6349,16 +6412,16 @@ plot_nested_cv_results <- function(cv_result_regular, cv_result_nested,
           ) +
           scale_fill_brewer(palette = "Set2") +
           labs(
-            title = paste("Optimism Bias Analysis:", model_name),
+            title = paste("Optimism bias analysis:", model_name),
             subtitle = paste(
               n_markers, "markers |", region_label,
-              "| Positive = Regular CV overestimates | Red lines = +/-5% threshold"
+              "| Positive = Regular CV overestimates | Red lines = \u00B15% threshold"
             ),
             x = "",
-            y = "Optimism Bias (Regular CV - Nested CV)",
+            y = "Optimism bias (regular CV \u2212 nested CV)",
             fill = "Metric"
           ) +
-          theme_minimal() +
+          theme_methylsense() +
           theme(
             plot.title = element_text(size = 14, face = "bold"),
             axis.text.x = element_text(size = 12, face = "bold"),
@@ -6378,7 +6441,7 @@ plot_nested_cv_results <- function(cv_result_regular, cv_result_nested,
     }
   )
 
-  log_msg(paste("[PLOT] Created", length(plot_files), "nested CV visualizations"))
+  log_msg(paste("[PLOT] Created", length(plot_files), "nested CV visualisations"))
   log_msg(paste("[DIR] Saved to:", basename(nested_dir)))
 
   return(plot_files)
@@ -6394,7 +6457,7 @@ plot_random_forest_viz <- function(model_fit, train_data, dmrs, output_dir, regi
         return(NULL) # Only works for Random Forest
       }
 
-      log_msg("[PLOT] Creating Random Forest visualization suite...")
+      log_msg("[PLOT] Creating Random Forest visualisation suite...")
 
       # Extract the actual randomForest object
       if (model_fit$method == "rf") {
@@ -6467,13 +6530,13 @@ plot_random_forest_viz <- function(model_fit, train_data, dmrs, output_dir, regi
             coord_flip() +
             scale_fill_manual(values = c("Hyper" = "#d73027", "Hypo" = "#4575b4", "Unknown" = "gray70")) +
             labs(
-              title = "Random Forest Feature Importance",
+              title = "Random forest feature importance",
               subtitle = paste("Top DMRs | Region:", region_label),
-              x = "DMR Features",
-              y = "Mean Decrease in Gini",
+              x = "DMR features",
+              y = "Mean decrease in Gini",
               fill = "Methylation"
             ) +
-            theme_minimal() +
+            theme_methylsense() +
             theme(
               plot.title = element_text(size = 14, face = "bold"),
               axis.text.y = element_text(size = 8)
@@ -6701,13 +6764,13 @@ plot_random_forest_viz <- function(model_fit, train_data, dmrs, output_dir, regi
                 geom_point(size = 2) +
                 scale_color_brewer(type = "qual", palette = "Set1") +
                 labs(
-                  title = paste("Partial Dependence Plot"),
-                  subtitle = paste("Most Important Feature:", top_feature),
-                  x = paste("Methylation Level (%) -", top_feature),
-                  y = "Predicted Probability",
-                  color = "Class"
+                  title = paste("Partial dependence plot"),
+                  subtitle = paste("Most important feature:", top_feature),
+                  x = paste("Methylation level (%) -", top_feature),
+                  y = "Predicted probability",
+                  colour = "Class"
                 ) +
-                theme_minimal() +
+                theme_methylsense() +
                 theme(
                   plot.title = element_text(size = 14, face = "bold"),
                   legend.position = "bottom"
@@ -6725,11 +6788,11 @@ plot_random_forest_viz <- function(model_fit, train_data, dmrs, output_dir, regi
         }
       )
 
-      log_msg(paste("[PLOT] Created", length(saved_plots), "Random Forest visualizations"))
+      log_msg(paste("[PLOT] Created", length(saved_plots), "Random Forest visualisations"))
       return(saved_plots)
     },
     error = function(e) {
-      log_warning(paste("Random Forest visualization suite failed:", e$message), "Plotting")
+      log_warning(paste("Random Forest visualisation suite failed:", e$message), "Plotting")
       return(NULL)
     }
   )
@@ -7561,11 +7624,11 @@ if (opt$strategy != "traditional") {
     "  This version of MethylSense only supports the 'traditional' strategy.\n",
     "\n",
     "  Strategy: traditional\n",
-    "    Analyzes user-provided genomic regions in BED format.\n",
+    "    Analyses user-provided genomic regions in BED format.\n",
     "\n",
     "  Required input (choose one):\n",
     "    --window_file <path/to/regions.bed>\n",
-    "        Single BED file with genomic regions to analyze\n",
+    "        Single BED file with genomic regions to analyse\n",
     "\n",
     "    --region_dir <path/to/bed_directory>\n",
     "        Directory containing multiple BED files (one per region set)\n",
@@ -8930,8 +8993,14 @@ if (length(region_data) == 0 && !opt$force_ml) {
 
         if (all(c("chr", "start", "end") %in% names(all_dmrs))) {
           log_msg(paste("[CPG REPORT] Found", nrow(all_dmrs), "DMRs"))
-          group_names_parsed <- strsplit(opt$group_names, ",")[[1]]
-          group_colors_parsed <- if (!is.null(opt$group_colors)) strsplit(opt$group_colors, ",")[[1]] else NULL
+          group_names_parsed <- trimws(strsplit(opt$group_names, ",")[[1]])
+          group_colors_parsed <- resolve_cpg_group_colors(
+            group_names_parsed, opt$output_dir, opt$group_colors
+          )
+          log_msg(paste(
+            "[CPG REPORT] Group colours for profiles:",
+            paste(group_names_parsed, "=", group_colors_parsed, collapse = ", ")
+          ))
 
           tryCatch(
             {
@@ -11515,9 +11584,9 @@ for (region_idx in seq_along(region_data)) {
                   "-", round(cv_result_regular$summary$accuracy_95ci_upper, 3), "]"
                 ))
 
-                # ===== CREATE STANDARD CV VISUALIZATIONS =====
+                # ===== CREATE STANDARD CV VISUALISATIONS =====
                 if (opt$create_plots) {
-                  log_msg("[PLOT] Creating standard CV visualization suite...")
+                  log_msg("[PLOT] Creating standard CV visualisation suite...")
 
                   standard_cv_plots <- plot_standard_cv_results(
                     cv_result_regular = cv_result_regular,
@@ -11534,7 +11603,7 @@ for (region_idx in seq_along(region_data)) {
                     }
                   }
                 }
-                # ===== END STANDARD CV VISUALIZATIONS =====
+                # ===== END STANDARD CV VISUALISATIONS =====
 
                 # STEP 2: Optionally run nested CV (gold standard, slow)
                 if (opt$nested_cv) {
@@ -11575,9 +11644,9 @@ for (region_idx in seq_along(region_data)) {
               }
               # ===== END CV BLOCK =====
 
-              # ===== CREATE NESTED CV VISUALIZATIONS =====
+              # ===== CREATE NESTED CV VISUALISATIONS =====
               if (!is.null(cv_result_nested) && opt$create_plots) {
-                log_msg("[PLOT] Creating nested CV visualization suite...")
+                log_msg("[PLOT] Creating nested CV visualisation suite...")
 
                 nested_cv_plots <- plot_nested_cv_results(
                   cv_result_regular = cv_result_regular,
@@ -11595,7 +11664,7 @@ for (region_idx in seq_along(region_data)) {
                   }
                 }
               }
-              # ===== END NESTED CV VISUALIZATIONS =====
+              # ===== END NESTED CV VISUALISATIONS =====
 
               # NOW CREATE results_row WITH BOTH REGULAR AND NESTED CV METRICS
               results_row <- data.frame(
@@ -11978,11 +12047,11 @@ for (region_idx in seq_along(region_data)) {
                   }
                 )
 
-                # STEP 10: Random Forest specific visualizations
+                # STEP 10: Random Forest specific visualisations
                 if (model_name == "rf" || model_name == "ranger") {
                   tryCatch(
                     {
-                      log_msg("[PLOT] Creating Random Forest visualizations...")
+                      log_msg("[PLOT] Creating Random Forest visualisations...")
                       rf_viz_files <- plot_random_forest_viz(
                         result$model_fit,
                         train_data,
@@ -11992,11 +12061,11 @@ for (region_idx in seq_along(region_data)) {
                         n_markers
                       )
                       if (!is.null(rf_viz_files)) {
-                        verbose_msg(paste("Random Forest visualizations created:", length(rf_viz_files), "plots"))
+                        verbose_msg(paste("Random Forest visualisations created:", length(rf_viz_files), "plots"))
                       }
                     },
                     error = function(e) {
-                      log_error(paste("RF visualizations failed:", e$message), "Plotting")
+                      log_error(paste("RF visualisations failed:", e$message), "Plotting")
                     }
                   )
                 }
@@ -12098,11 +12167,11 @@ for (region_idx in seq_along(region_data)) {
                       labs(
                         title = paste("Predictions:", model_name, "with", n_markers, "markers"),
                         subtitle = paste("Accuracy:", round(result$accuracy, 3), "| Region:", reg_label),
-                        x = "Actual Group",
-                        y = "Predicted Group",
-                        color = "Actual Group"
+                        x = "Actual group",
+                        y = "Predicted group",
+                        colour = "Actual group"
                       ) +
-                      theme_minimal() +
+                      theme_methylsense() +
                       theme(
                         plot.title = element_text(size = 14, face = "bold"),
                         axis.text.x = element_text(angle = 45, hjust = 1, size = 11),
@@ -12143,12 +12212,12 @@ for (region_idx in seq_along(region_data)) {
                       geom_text(aes(label = round(value, 3)), vjust = -0.3) +
                       ylim(0, 1.1) +
                       labs(
-                        title = paste("Model Performance:", model_name),
+                        title = paste("Model performance:", model_name),
                         subtitle = paste(n_markers, "markers | Region:", reg_label),
                         x = "Metric",
                         y = "Score"
                       ) +
-                      theme_minimal() +
+                      theme_methylsense() +
                       theme(legend.position = "none")
 
                     metrics_plot_file <- file.path(model_dir, "performance_metrics")
@@ -12235,7 +12304,7 @@ if (nrow(results_summary) > 0) {
   if (has_nested) {
     cat("\n")
     log_msg("================================================================================")
-    log_msg("CROSS-VALIDATION COMPARISON SUMMARY")
+    log_msg("Cross-validation comparison summary")
     log_msg("================================================================================")
 
     cv_comparison <- results_summary[
@@ -12330,9 +12399,15 @@ if (isTRUE(opt$cpg_report)) {
       if (all(c("chr", "start", "end") %in% names(all_dmrs))) {
         log_msg(paste("[CPG REPORT] Found", nrow(all_dmrs), "DMRs from", length(all_dmr_files), "files"))
 
-        # Get group names and colors from opt
-        group_names_parsed <- strsplit(opt$group_names, ",")[[1]]
-        group_colors_parsed <- if (!is.null(opt$group_colors)) strsplit(opt$group_colors, ",")[[1]] else NULL
+        # Group colours: same as training plots (treatment_processed / settings / MethylSense palette)
+        group_names_parsed <- trimws(strsplit(opt$group_names, ",")[[1]])
+        group_colors_parsed <- resolve_cpg_group_colors(
+          group_names_parsed, opt$output_dir, opt$group_colors
+        )
+        log_msg(paste(
+          "[CPG REPORT] Group colours for profiles:",
+          paste(group_names_parsed, "=", group_colors_parsed, collapse = ", ")
+        ))
 
         # Generate the CpG report
         tryCatch(
@@ -12345,7 +12420,7 @@ if (isTRUE(opt$cpg_report)) {
               group_names = group_names_parsed,
               group_colors = group_colors_parsed,
               top_n_dmrs = opt$cpg_top_dmrs,
-              plot_formats = c("png", "svg"),
+              plot_formats = c("png"),
               gtf_file = opt$gtf_file
             )
 
@@ -12409,7 +12484,7 @@ log_msg(paste("[DIR] All outputs saved to:", unique_output_dir))
 # ================================================================================
 log_msg("")
 log_msg("================================================================================")
-log_msg("OUTPUT DIRECTORY SUMMARY")
+log_msg("Output directory summary")
 log_msg("================================================================================")
 
 # Check for key output files

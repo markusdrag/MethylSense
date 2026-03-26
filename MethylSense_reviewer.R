@@ -3,8 +3,8 @@
 # ============================================================================
 # Comprehensive Model Validation and Technical Quality Assessment
 # ============================================================================
-# VERSION: 5.6.6
-# DATE: 2026-01-22
+# VERSION: 5.7.0
+# DATE: 2026-03-23
 # GitHub: https://github.com/markusdrag/MethylSense
 # CHANGELOG:
 #   v5.13.5 - BUGFIX: Time series figures (Figure 5, 6) now display correctly
@@ -664,87 +664,22 @@
 #   v6.3.2 - Fixed PCA/UMAP
 # ============================================================================
 
-SCRIPT_VERSION <- "5.6.6"
-SCRIPT_DATE <- "2026-01-29"
+SCRIPT_VERSION <- "5.7.0"
+SCRIPT_DATE <- "2026-03-23"
 
 # ================================================================================
 # METHYLSENSE GLOBAL THEME CONFIGURATION
 # ================================================================================
 
-# Color palette - Dark Green / Teal / Deep Purple theme (publication-ready)
-METHYLSENSE_COLORS <- list(
-  # Primary group colors
-  Control = "#1B5E20", # Dark forest green
-  Suspected = "#006064", # Dark teal/cyan
-  Infected = "#4A148C", # Deep purple
-  Case = "#4A148C", # Alias for Infected
-
-  # Extended palette for multi-group designs
-  Extended = c("#1B5E20", "#006064", "#4A148C", "#B71C1C", "#E65100"),
-
-  # Accent colors for specific plot elements
-  Hyper = "#D32F2F", # Red for hypermethylated
-  Hypo = "#1976D2", # Blue for hypomethylated
-  Neutral = "#757575", # Gray for neutral/non-significant
-
-  # Ribbon/fill colors (lighter versions)
-  Control_light = "#A5D6A7",
-  Suspected_light = "#80DEEA",
-  Infected_light = "#CE93D8"
-)
-
-# Global ggplot2 theme with Helvetica and significantly larger text
-theme_methylsense <- function(base_size = 14) {
-  # Standard font is Helvetica, fallback to sans if unavailable
-  font_family <- "Helvetica"
-  tryCatch(
-    {
-      if (!requireNamespace("extrafont", quietly = TRUE) || !("Helvetica" %in% extrafont::fonts())) {
-        font_family <- "sans"
-      }
-    },
-    error = function(e) font_family <- "sans"
-  )
-
-  theme_minimal(base_size = base_size) +
-    theme(
-      # Font family
-      text = element_text(family = font_family),
-
-      # Title styling - MUCH LARGER
-      plot.title = element_text(face = "bold", size = base_size + 6, color = "#1A1A1A"),
-      plot.subtitle = element_text(size = base_size + 2, color = "#4A4A4A"),
-
-      # Axis styling - LARGER text
-      axis.title = element_text(face = "bold", size = base_size + 2),
-      axis.text = element_text(size = base_size, color = "#2A2A2A", face = "bold"),
-      axis.title.x = element_text(margin = margin(t = 15)),
-      axis.title.y = element_text(margin = margin(r = 15)),
-
-      # Ticks
-      axis.ticks = element_line(color = "black"),
-      axis.ticks.length = unit(0.2, "cm"),
-
-      # Legend styling - LARGER text
-      legend.title = element_text(face = "bold", size = base_size + 2),
-      legend.text = element_text(size = base_size + 1),
-      legend.key.size = unit(1.5, "lines"),
-
-      # Panel styling
-      panel.grid.minor = element_blank(),
-      panel.grid.major = element_line(color = "#D0D0D0", linewidth = 0.5),
-      panel.border = element_rect(fill = NA, color = "black", linewidth = 1),
-      plot.background = element_rect(fill = "white", color = NA),
-      panel.background = element_rect(fill = "white", color = NA),
-
-      # Strip styling for faceted plots
-      strip.text = element_text(face = "bold", size = base_size + 2),
-      strip.background = element_rect(fill = "#EEEEEE", color = "black", linewidth = 0.5),
-
-      # Plot margins
-      plot.margin = margin(20, 20, 20, 20)
-    )
+# Source shared MethylSense theme and colour palette (Rscript-safe path)
+cmd_args_theme <- commandArgs(trailingOnly = FALSE)
+file_arg_theme <- grep("^--file=", cmd_args_theme, value = TRUE)
+script_dir_theme <- if (length(file_arg_theme)) {
+  dirname(normalizePath(sub("^--file=", "", file_arg_theme[1]), mustWork = FALSE))
+} else {
+  getwd()
 }
+source(file.path(script_dir_theme, "MethylSense_theme.R"))
 
 # ============================================================================
 # COMPREHENSIVE LOGGING SYSTEM
@@ -1290,6 +1225,7 @@ suppressPackageStartupMessages({
   library(readxl)
   library(dplyr)
   library(ggplot2)
+  library(hrbrthemes)
   library(ggrepel)
   library(pheatmap)
   library(RColorBrewer)
@@ -3084,7 +3020,11 @@ cat("          [OK] Loaded", length(meth_data), "samples\n")
 
 # Load sample sheet
 cat("          Loading sample sheet...\n")
-sample_sheet <- read_excel(opt$sample_sheet)
+if (grepl("\\.csv$", opt$sample_sheet, ignore.case = TRUE)) {
+  sample_sheet <- read.csv(opt$sample_sheet, stringsAsFactors = FALSE, check.names = FALSE)
+} else {
+  sample_sheet <- read_excel(opt$sample_sheet)
+}
 log_info(paste0("Sample sheet loaded: ", nrow(sample_sheet), " samples"), "STEP3")
 cat("          [OK]", nrow(sample_sheet), "x", ncol(sample_sheet), "\n")
 
@@ -3279,16 +3219,12 @@ if ("actual_class" %in% colnames(sample_metadata)) {
     }
   } else {
     # Try reading original group colors from analysis_settings.txt
-    # Structure: main_dir/analysis_settings.txt
-    #            main_dir/region_dir/model_type/markers_N/ <- opt$model_dir
     settings_file <- file.path(dirname(dirname(dirname(opt$model_dir))), "analysis_settings.txt")
     if (file.exists(settings_file)) {
       cat(sprintf("\n          [INFO] Reading original analysis settings from: %s\n", basename(settings_file)))
       settings_lines <- readLines(settings_file, warn = FALSE)
 
-      # Extract group names line: "  Group names: Name1,Name2,Name3"
       gn_line <- grep("^\\s*Group names:", settings_lines, value = TRUE)
-      # Extract group colors line: "  Group colors: #HEX1,#HEX2,#HEX3"
       gc_line <- grep("^\\s*Group colors:", settings_lines, value = TRUE)
 
       if (length(gn_line) > 0 && length(gc_line) > 0) {
@@ -3296,11 +3232,9 @@ if ("actual_class" %in% colnames(sample_metadata)) {
         orig_group_colors <- trimws(strsplit(sub(".*Group colors:\\s*", "", gc_line[1]), ",")[[1]])
 
         if (length(orig_group_names) == length(orig_group_colors) && length(orig_group_names) > 0) {
-          # Match original group names to actual group names in data
           matched <- orig_group_names %in% group_names
           if (sum(matched) > 0) {
             group_colors <- setNames(orig_group_colors[matched], orig_group_names[matched])
-            # Add any groups in data but not in settings using Extended palette
             missing_groups <- setdiff(group_names, names(group_colors))
             if (length(missing_groups) > 0) {
               extra_colors <- METHYLSENSE_COLORS$Extended[seq_along(missing_groups)]
@@ -3315,8 +3249,6 @@ if ("actual_class" %in% colnames(sample_metadata)) {
       }
     }
 
-    # If still NULL, use METHYLSENSE_COLORS Extended palette with keyword matching
-    # (same logic as MethylSense_analysis.R auto-assign)
     if (is.null(group_colors)) {
       group_colors <- METHYLSENSE_COLORS$Extended[1:length(group_names)]
       for (i in seq_along(group_names)) {
@@ -8381,22 +8313,63 @@ if (length(qc_columns) > 0) {
     )
   }
 
+  # Combined faceted covariate distribution plot (all numeric covariates in one figure)
+  numeric_qc <- qc_columns[sapply(qc_columns, function(col) {
+    col %in% colnames(sample_sheet_matched) && is.numeric(sample_sheet_matched[[col]])
+  })]
+  if (length(numeric_qc) > 0) {
+    combined_df <- do.call(rbind, lapply(numeric_qc, function(col) {
+      data.frame(
+        value = sample_sheet_matched[[col]],
+        covariate = gsub("_", " ", col),
+        stringsAsFactors = FALSE
+      )
+    }))
+    combined_df <- combined_df[!is.na(combined_df$value), ]
+
+    ncol_facet <- min(3, length(numeric_qc))
+    nrow_facet <- ceiling(length(numeric_qc) / ncol_facet)
+    fig_w <- max(10, ncol_facet * 4)
+    fig_h <- max(5, nrow_facet * 3.5)
+
+    p_combined <- ggplot(combined_df, aes(x = value)) +
+      geom_histogram(fill = "steelblue", alpha = 0.7, colour = "black", bins = 15) +
+      facet_wrap(~covariate, scales = "free", ncol = ncol_facet) +
+      labs(x = NULL, y = "Count") +
+      theme_methylsense() +
+      theme(strip.text = element_text(face = "bold", size = 11))
+
+    save_plot_multiple_formats(p_combined,
+      file.path(qc_dir, "covariate_distributions_combined"),
+      width = fig_w, height = fig_h
+    )
+    cat(sprintf("          [OK] Created combined covariate distribution plot (%d variables)\n", length(numeric_qc)))
+  }
+
   # ===== ADVANCED: LINEAR MIXED EFFECTS MODELS FOR PRE-ANALYTICAL QC =====
   cat("\n")
   cat("          ===== ADVANCED ANALYSIS: MIXED EFFECTS MODELS =====\n")
   cat("          Testing pre-analytical variables with proper statistical models...\n")
 
-  # Use the SAME technical covariates as batch effects analysis
+  # Use technical covariates from batch effects analysis, or fall back to QC columns
+  lmm_covariates <- if (exists("tech_covariates") && length(tech_covariates) > 0) {
+    tech_covariates
+  } else if (exists("qc_columns") && length(qc_columns) > 0) {
+    qc_columns
+  } else {
+    character(0)
+  }
+
   if (exists("sample_metadata") && "actual_class" %in% colnames(sample_metadata) &&
-    exists("tech_covariates") && length(tech_covariates) > 0) {
+    length(lmm_covariates) > 0) {
     library(lme4)
 
-    cat("          Using technical covariates from batch effects analysis:\n")
-    cat("          ", paste(tech_covariates, collapse = ", "), "\n")
+    cat("          Using covariates for linear model analysis:\n")
+    cat("          ", paste(lmm_covariates, collapse = ", "), "\n")
 
     lmm_summary_results <- list()
 
-    for (col in tech_covariates) {
+    for (col in lmm_covariates) {
       if (!col %in% colnames(sample_sheet_matched)) next
 
       cat(sprintf("\n          Testing covariate: '%s'\n", col))
@@ -8660,10 +8633,10 @@ if (length(qc_columns) > 0) {
           levels = unique(lmm_plot_data$category[order(lmm_plot_data$order)])
         )
 
-        # Define colours: neutral for non-sig, case for adj, suspected for raw
+        # Define colours: neutral for non-sig, suspected for raw-only, infected for FDR-sig
         fill_colors <- setNames(
           c(METHYLSENSE_COLORS$Neutral, METHYLSENSE_COLORS$Suspected, METHYLSENSE_COLORS$Infected),
-          category_levels
+          levels(lmm_plot_data$category)
         )
 
         p_lmm <- ggplot(lmm_plot_data, aes(x = covariate, y = count, fill = category)) +
@@ -9161,7 +9134,7 @@ if (opt$generate_markdown) {
       md <- c(md, "|--------|-------|----------------|")
       md <- c(md, sprintf("| Overall Accuracy | %.4f | %.1f%% correct classifications |", accuracy_val, accuracy_val * 100))
       md <- c(md, sprintf("| Cohen's Kappa | %.4f | %s |", kappa_val, kappa_interpretation))
-      md <- c(md, sprintf("| Number of Samples | %.0f | — |", n_samples_val))
+      md <- c(md, sprintf("| Number of Samples | %.0f | - |", n_samples_val))
       md <- c(md, "")
 
       md <- c(md, "> **Interpretation:** Cohen's kappa provides a measure of agreement beyond chance (Landis & Koch 1977). Guidelines: <0.00 = poor, 0.00-0.20 = slight, 0.21-0.40 = fair, 0.41-0.60 = moderate, 0.61-0.80 = substantial, 0.81-1.00 = almost perfect.")
@@ -9547,7 +9520,7 @@ if (opt$generate_markdown) {
           } else {
             # No AUC available
             md <- c(md, sprintf(
-              "| %d | %.2f%% | — | %.2f%% | %.2f%% | %.3f |",
+              "| %d | %.2f%% | - | %.2f%% | %.2f%% | %.3f |",
               class_fold_data$fold[i], acc_val, sens_val, spec_val, f1_val
             ))
           }
@@ -9947,10 +9920,10 @@ if (opt$generate_markdown) {
 
         for (i in 1:nrow(gene_annot)) {
           dmr <- gene_annot[i, ]
-          gene_name <- ifelse(is.na(dmr$Nearest_Gene_Name), "—", dmr$Nearest_Gene_Name)
-          distance <- ifelse(is.na(dmr$Gene_Distance), "—", format(dmr$Gene_Distance, big.mark = ","))
-          direction <- ifelse(is.na(dmr$Gene_Direction), "—", dmr$Gene_Direction)
-          biotype <- ifelse(is.na(dmr$Gene_Biotype), "—", dmr$Gene_Biotype)
+          gene_name <- ifelse(is.na(dmr$Nearest_Gene_Name), "-", dmr$Nearest_Gene_Name)
+          distance <- ifelse(is.na(dmr$Gene_Distance), "-", format(dmr$Gene_Distance, big.mark = ","))
+          direction <- ifelse(is.na(dmr$Gene_Direction), "-", dmr$Gene_Direction)
+          biotype <- ifelse(is.na(dmr$Gene_Biotype), "-", dmr$Gene_Biotype)
           position <- sprintf("%s:%s-%s", dmr$Chr, format(dmr$Start, big.mark = ","), format(dmr$End, big.mark = ","))
 
           md <- c(md, sprintf(
@@ -10055,8 +10028,8 @@ if (opt$generate_markdown) {
         # Build row with dynamic probability columns
         row_parts <- c(
           as.character(row$sample_id),
-          ifelse(is.na(row$Lab_ID), "—", as.character(row$Lab_ID)),
-          ifelse(is.na(row$Animal_ID), "—", as.character(row$Animal_ID)),
+          ifelse(is.na(row$Lab_ID), "-", as.character(row$Lab_ID)),
+          ifelse(is.na(row$Animal_ID), "-", as.character(row$Animal_ID)),
           as.character(row$actual),
           as.character(row$predicted)
         )
@@ -10278,7 +10251,7 @@ if (opt$generate_markdown) {
     if (exists("calibration_analysis") && calibration_analysis$available) {
       md <- c(md, "### Prediction Probability Calibration")
       md <- c(md, "")
-      md <- c(md, "We assessed whether predicted probabilities accurately reflect true classification confidence—a critical requirement for clinical decision thresholds.")
+      md <- c(md, "We assessed whether predicted probabilities accurately reflect true classification confidence-a critical requirement for clinical decision thresholds.")
       md <- c(md, "")
 
       calib_data <- calibration_analysis$calibration
@@ -10616,7 +10589,7 @@ if (opt$generate_markdown) {
           per_class_metrics$f1_score$ci_lower,
           per_class_metrics$f1_score$ci_upper
         ))
-        md <- c(md, sprintf("| **Folds** | **%d** | **—** | **—** |", per_class_metrics$n_folds))
+        md <- c(md, sprintf("| **Folds** | **%d** | **-** | **-** |", per_class_metrics$n_folds))
         md <- c(md, "")
       }
       md <- c(md, "")
@@ -10668,7 +10641,7 @@ if (opt$generate_markdown) {
         nested_cv_summary$specificity_ci_lower,
         nested_cv_summary$specificity_ci_upper
       ))
-      md <- c(md, sprintf("| **Folds** | **%d** | **—** | **—** |", nested_cv_summary$n_folds))
+      md <- c(md, sprintf("| **Folds** | **%d** | **-** | **-** |", nested_cv_summary$n_folds))
       md <- c(md, "")
 
       md <- c(md, "> **Interpretation:** The 95% confidence intervals indicate the range within which the true population performance metric likely falls. Narrow confidence intervals suggest robust, consistent performance across folds.")

@@ -7,7 +7,7 @@
 #          → methylKit methylRaw objects for downstream DMR and ML analysis
 #
 # Author: Markus Hodal Drag
-# Version: 5.6.6
+# Version: 5.7.0
 # Release Date: 2026-01-22
 # GitHub: https://github.com/markusdrag/MethylSense
 #
@@ -20,7 +20,7 @@
 #   https://doi.org/10.1101/2025.04.11.648151
 # ================================================================================
 
-SCRIPT_VERSION <- "5.6.6"
+SCRIPT_VERSION <- "5.7.0"
 SCRIPT_DATE <- "2026-01-29"
 
 suppressPackageStartupMessages({
@@ -139,7 +139,7 @@ cat("        M   M  E        T    H   H    Y    L          S E      N  NN      S
 cat("        M   M  EEEEE    T    H   H    Y    LLLLL  SSSS  EEEEE  N   N  SSSS  EEEEE\n")
 cat("                                                                                \n")
 cat("================================================================================\n")
-cat("                      DATA PREPROCESSING PIPELINE                              \n")
+cat("                      Data preprocessing pipeline                              \n")
 cat("================================================================================\n")
 cat(paste("Version:", SCRIPT_VERSION, "|", "Release Date:", SCRIPT_DATE, "\n"))
 cat(paste("Start Time:", format(Sys.time(), "%Y-%m-%d %H:%M:%S"), "\n"))
@@ -176,7 +176,7 @@ cat("\n")
 # ================================================================================
 
 cat("================================================================================\n")
-cat("STEP 1: Loading Sample Sheet\n")
+cat("Step 1: Loading sample sheet\n")
 cat("================================================================================\n\n")
 
 sheet_all <- tryCatch(
@@ -236,7 +236,7 @@ cat("\n")
 # ================================================================================
 
 cat("================================================================================\n")
-cat("STEP 2: Converting BED Files to Standard Format\n")
+cat("Step 2: Converting BED files to standard format\n")
 cat("================================================================================\n\n")
 
 files_to_convert <- which(file.exists(original_bed_files) &
@@ -340,7 +340,7 @@ if (length(files_to_convert) == 0) {
 # ================================================================================
 
 cat("================================================================================\n")
-cat("STEP 3: Creating methylKit Objects\n")
+cat("Step 3: Creating methylKit objects\n")
 cat("================================================================================\n\n")
 
 existing_converted <- converted_files[file.exists(converted_files)]
@@ -456,7 +456,7 @@ cat("\nObject created successfully!\n\n")
 # ================================================================================
 
 cat("================================================================================\n")
-cat("STEP 4: Summary Statistics\n")
+cat("Step 4: Summary statistics\n")
 cat("================================================================================\n\n")
 
 actual_treatment <- getTreatment(meth_obj)
@@ -480,7 +480,7 @@ cat("  Median:            ", format(round(median(sample_sizes)), big.mark = ",")
 # ================================================================================
 
 cat("================================================================================\n")
-cat("STEP 5: Saving Processed Data\n")
+cat("Step 5: Saving processed data\n")
 cat("================================================================================\n\n")
 
 outfile <- file.path(
@@ -502,7 +502,7 @@ summary_file <- file.path(
 )
 writeLines(c(
   "================================================================================",
-  "METHYLSENSE DATA PREPROCESSING SUMMARY",
+  "MethylSense data preprocessing summary",
   "================================================================================",
   paste0("Generated:              ", format(Sys.time(), "%Y-%m-%d %H:%M:%S")),
   paste0("Version:                ", SCRIPT_VERSION),
@@ -534,7 +534,7 @@ cat("Summary report:    ", basename(summary_file), "\n\n")
 # ================================================================================
 
 cat("================================================================================\n")
-cat("PREPROCESSING COMPLETE\n")
+cat("Preprocessing complete\n")
 cat("================================================================================\n\n")
 cat("Status:            SUCCESS\n")
 cat("Output directory:  ", opt$output_dir, "\n")
