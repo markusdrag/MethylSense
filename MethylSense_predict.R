@@ -7,7 +7,7 @@
 #          v3: Enhanced with robust chromosome normalization and type handling
 #
 # Author: Markus Hodal Drag
-# Version: 5.6.6
+# Version: 5.7.0
 # Release Date: 2026-01-22
 # GitHub: https://github.com/markusdrag/MethylSense
 #
@@ -20,7 +20,7 @@
 #   https://doi.org/10.1101/2025.04.11.648151
 # ================================================================================
 
-SCRIPT_VERSION <- "5.6.6"
+SCRIPT_VERSION <- "5.7.0"
 SCRIPT_DATE <- "2026-01-29"
 
 suppressPackageStartupMessages({
@@ -150,7 +150,7 @@ cat("        M   M  E        T    H   H    Y    L          S E      N  NN      S
 cat("        M   M  EEEEE    T    H   H    Y    LLLLL  SSSS  EEEEE  N   N  SSSS  EEEEE\n")
 cat("                                                                                \n")
 cat("================================================================================\n")
-cat("                     DIAGNOSTIC PREDICTION PIPELINE v3                        \n")
+cat("                     Diagnostic prediction pipeline v3                        \n")
 cat("================================================================================\n")
 cat(paste("Version:", SCRIPT_VERSION, "|", "Release Date:", SCRIPT_DATE, "\n"))
 cat(paste("Start Time:", format(Sys.time(), "%Y-%m-%d %H:%M:%S"), "\n"))
@@ -223,7 +223,7 @@ normalize_chr <- function(chr) {
 # ================================================================================
 
 cat("================================================================================\n")
-cat("STEP 1: Loading Trained Model\n")
+cat("Step 1: Loading trained model\n")
 cat("================================================================================\n\n")
 
 if (!dir.exists(opt$model_dir)) {
@@ -267,13 +267,13 @@ dmr_coords <- tryCatch(
 dmr_coords$scaffold_original <- dmr_coords$scaffold
 
 # Normalize chromosome names in DMR coordinates
-log_msg("Normalizing DMR chromosome names...")
+log_msg("Normalising DMR chromosome names...")
 dmr_coords$scaffold <- normalize_chr(dmr_coords$scaffold)
 
 n_markers <- nrow(dmr_coords)
 log_msg(paste("[OK] Loaded", n_markers, "DMR markers"))
 log_msg(paste("     Original format:", paste(head(unique(dmr_coords$scaffold_original), 5), collapse = ", ")))
-log_msg(paste("     Normalized format:", paste(head(unique(dmr_coords$scaffold), 5), collapse = ", ")))
+log_msg(paste("     Normalised format:", paste(head(unique(dmr_coords$scaffold), 5), collapse = ", ")))
 
 cat("\nDMR Summary:\n")
 cat("  Total markers:     ", n_markers, "\n")
@@ -300,7 +300,7 @@ log_msg(paste("  Classes: ", paste(class_levels, collapse = " vs ")))
 
 cat("\n")
 cat("================================================================================\n")
-cat("STEP 2: Loading New Samples\n")
+cat("Step 2: Loading new samples\n")
 cat("================================================================================\n\n")
 
 log_msg(paste("Loading samples from:", basename(opt$qs_file)))
@@ -321,12 +321,12 @@ log_msg(paste(
   round(as.numeric(end_load - start_load, units = "secs")), "seconds"
 ))
 
-verbose_msg("Normalizing coverage using median method...")
+verbose_msg("Normalising coverage using median method...")
 new_samples <- normalizeCoverage(new_samples, method = "median")
-log_msg("[OK] Coverage normalized")
+log_msg("[OK] Coverage normalised")
 
 # Normalize chromosome names in all samples
-log_msg("Normalizing chromosome names in samples...")
+log_msg("Normalising chromosome names in samples...")
 for (i in seq_along(new_samples)) {
   sample_data <- getData(new_samples[[i]])
 
@@ -341,10 +341,10 @@ for (i in seq_along(new_samples)) {
 
   if (i == 1) {
     log_msg(paste("     Sample chr format (original):", paste(head(unique(sample_data$chr_original), 5), collapse = ", ")))
-    log_msg(paste("     Sample chr format (normalized):", paste(head(unique(sample_data$chr), 5), collapse = ", ")))
+    log_msg(paste("     Sample chr format (normalised):", paste(head(unique(sample_data$chr), 5), collapse = ", ")))
   }
 }
-log_msg("[OK] Chromosome names normalized")
+log_msg("[OK] Chromosome names normalised")
 
 sample_ids <- sapply(new_samples, function(x) x@sample.id)
 log_msg(paste(
@@ -384,7 +384,7 @@ log_msg(paste(
 ))
 
 # Enhanced diagnostic output
-cat("\n=== DIAGNOSTIC: Data Compatibility Check ===\n")
+cat("\n=== Diagnostic: data compatibility check ===\n")
 test_sample <- getData(new_samples[[1]])
 
 # Chromosome overlap check
@@ -430,7 +430,7 @@ cat("=========================================\n\n")
 # ================================================================================
 
 cat("================================================================================\n")
-cat("STEP 3: Extracting DMR Methylation\n")
+cat("Step 3: Extracting DMR methylation\n")
 cat("================================================================================\n\n")
 
 log_msg("Creating genomic regions for DMRs...")
@@ -555,9 +555,9 @@ if (missing_count == length(methylation_matrix)) {
 
   cat("\nChromosome Format:\n")
   cat("  DMR (original):    ", paste(head(unique(dmr_coords$scaffold_original), 5), collapse = ", "), "\n")
-  cat("  DMR (normalized):  ", paste(head(unique(dmr_coords$scaffold), 5), collapse = ", "), "\n")
+  cat("  DMR (normalised):  ", paste(head(unique(dmr_coords$scaffold), 5), collapse = ", "), "\n")
   cat("  Sample (original): ", paste(head(unique(sample_df$chr_original), 5), collapse = ", "), "\n")
-  cat("  Sample (normalized):", paste(head(unique(sample_df$chr), 5), collapse = ", "), "\n")
+  cat("  Sample (normalised):", paste(head(unique(sample_df$chr), 5), collapse = ", "), "\n")
 
   # Check chromosome overlap
   dmr_chrs <- unique(dmr_coords$scaffold)
@@ -570,7 +570,7 @@ if (missing_count == length(methylation_matrix)) {
   cat("  Overlapping:       ", length(overlap), "\n")
 
   if (length(overlap) == 0) {
-    cat("\n  [CRITICAL] No chromosome overlap after normalization!\n")
+    cat("\n  [CRITICAL] No chromosome overlap after normalisation!\n")
     cat("  This indicates incompatible genome assemblies.\n")
   } else {
     cat("  Overlapping chrs:  ", paste(overlap, collapse = ", "), "\n")
@@ -662,7 +662,7 @@ log_msg(paste(
 
 cat("\n")
 cat("================================================================================\n")
-cat("STEP 4: Making Predictions\n")
+cat("Step 4: Making predictions\n")
 cat("================================================================================\n\n")
 
 log_msg("Applying trained model to new samples...")
@@ -741,7 +741,7 @@ cat("\n")
 # ================================================================================
 
 cat("================================================================================\n")
-cat("STEP 5: Saving Results\n")
+cat("Step 5: Saving results\n")
 cat("================================================================================\n\n")
 
 results_file <- file.path(opt$output_dir, paste0(today, "_predictions_detailed.csv"))
@@ -766,7 +766,7 @@ log_msg(paste("[OK] Extraction stats:", basename(extraction_stats_file)))
 summary_file <- file.path(opt$output_dir, paste0(today, "_prediction_summary.txt"))
 writeLines(c(
   "================================================================================",
-  "METHYLSENSE DIAGNOSTIC PREDICTION SUMMARY v3",
+  "MethylSense diagnostic prediction summary v3",
   "================================================================================",
   paste("Generated:", format(Sys.time(), "%Y-%m-%d %H:%M:%S")),
   paste("Version:", SCRIPT_VERSION),
@@ -823,7 +823,7 @@ log_msg(paste("[OK] Summary report: ", basename(summary_file)))
 
 cat("\n")
 cat("================================================================================\n")
-cat("PREDICTION PIPELINE COMPLETE\n")
+cat("Prediction pipeline complete\n")
 cat("================================================================================\n\n")
 
 cat("Summary:\n")
@@ -841,7 +841,7 @@ cat("\n")
 
 if (length(low_confidence_samples) > 0) {
   cat("================================================================================\n")
-  cat("ATTENTION: LOW CONFIDENCE PREDICTIONS\n")
+  cat("Attention: low confidence predictions\n")
   cat("================================================================================\n\n")
 
   # Get the low confidence rows from the sorted results_df

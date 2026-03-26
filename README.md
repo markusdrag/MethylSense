@@ -10,7 +10,7 @@
 
 [![License: AFL-3.0](https://img.shields.io/badge/Licence-AFL--3.0-blue.svg)](https://opensource.org/licenses/AFL-3.0)
 [![R](https://img.shields.io/badge/R-%3E%3D4.0-blue.svg)](https://www.r-project.org/)
-[![Version](https://img.shields.io/badge/version-5.6.6-brightgreen.svg)](https://github.com/markusdrag/MethylSense)
+[![Version](https://img.shields.io/badge/version-5.7.0-brightgreen.svg)](https://github.com/markusdrag/MethylSense)
 
 </div>
 
@@ -30,7 +30,7 @@ MethylSense is a sort-of "semi-automated" R-based bioinformatics pipeline for tr
 
 - **Diagnoses new samples**: Applies trained models to classify patient samples with probability scores and confidence estimates to support clinical decision-making.
 
-- **Generates publication-ready reports**: Creates comprehensive evaluation reports with ROC curves, confusion matrices, feature importance plots, and performance metrics suitable for publication. You will have a lot of figures ready!
+- **Generates publication-ready reports**: Creates comprehensive evaluation reports with ROC curves, confusion matrices, Random Forest decision-tree graphics (and other model-specific plots), and performance metrics suitable for publication. You will have a lot of figures ready!
 
 Originally developed for avian Aspergillus fumigatus infection diagnosis using host cell-free DNA methylation, achieving ~92% accuracy with Monte Carlo cross-validation.
 
@@ -109,7 +109,7 @@ If you prefer manual installation, MethylSense depends on packages from both CRA
 ```r
 # CRAN packages
 install.packages(c(
-  "optparse", "qs", "caret", "pROC", "ggplot2", "dplyr", "tidyr",
+  "optparse", "qs", "caret", "pROC", "ggplot2", "hrbrthemes", "dplyr", "tidyr",
   "randomForest", "e1071", "glmnet", "nnet", "class", "MASS",
   "klaR", "ranger", "xgboost", "pheatmap", "RColorBrewer",
   "data.table", "readxl", "reshape2", "viridis", "corrplot",
@@ -136,7 +136,7 @@ Rscript MethylSense_load_data.R --help
 
 ## Sample Sheet Format
 
-MethylSense requires a sample metadata file (Excel xlsx format) that describes your samples, their group assignments, and file locations. This information is essential for the pipeline to correctly load, process, and analyse your data.
+MethylSense requires a sample metadata file (**Excel `.xlsx` or comma-separated `.csv`**) that describes your samples, their group assignments, and file locations. This information is essential for the pipeline to correctly load, process, and analyse your data.
 
 ### Required columns
 
@@ -176,6 +176,7 @@ These columns provide additional metadata for reporting and stratification:
 <tr><td style="padding: 8px; border-bottom: 1px solid #ddd;">Infection</td><td style="padding: 8px; border-bottom: 1px solid #ddd;">Human-readable group label</td><td style="padding: 8px; border-bottom: 1px solid #ddd;">Control, Infected, Suspected</td></tr>
 <tr><td style="padding: 8px; border-bottom: 1px solid #ddd;">Study</td><td style="padding: 8px; border-bottom: 1px solid #ddd;">Study or cohort identifier for stratified analysis</td><td style="padding: 8px; border-bottom: 1px solid #ddd;">Study_A</td></tr>
 <tr><td style="padding: 8px; border-bottom: 1px solid #ddd;">Batch</td><td style="padding: 8px; border-bottom: 1px solid #ddd;">Batch identifier for covariate adjustment (use with --covariate_cols)</td><td style="padding: 8px; border-bottom: 1px solid #ddd;">Batch_1, Batch_2</td></tr>
+<tr><td style="padding: 8px; border-bottom: 1px solid #ddd;">Pre-analytic QC (numeric)</td><td style="padding: 8px; border-bottom: 1px solid #ddd;">Optional technical covariates: reviewer auto-detects columns whose names match keywords such as <code>storage</code>, <code>dna</code>, <code>hemolysis</code>, <code>time</code>, <code>concentration</code>, <code>extraction</code>, <code>quality</code>, <code>qc</code> (see script). Use several variables for meaningful histograms.</td><td style="padding: 8px; border-bottom: 1px solid #ddd;"><code>storage_time_days</code>, <code>cfDNA_concentration_ng_uL</code>, <code>hemolysis_index</code>, …</td></tr>
 <tr><td style="padding: 8px; border-bottom: 1px solid #ddd;">Animal_ID</td><td style="padding: 8px; border-bottom: 1px solid #ddd;">Individual animal identifier</td><td style="padding: 8px; border-bottom: 1px solid #ddd;">Bird_42</td></tr>
 <tr style="border-bottom: 2px solid #333;"><td style="padding: 8px;">Lab_ID</td><td style="padding: 8px;">Laboratory sample identifier</td><td style="padding: 8px;">LAB001</td></tr>
 </tbody>
@@ -194,7 +195,7 @@ infected_1    Gallus_gallus  infected_1.CpG.bed    infected_1_8col.bed    2     
 infected_2    Gallus_gallus  infected_2.CpG.bed    infected_2_8col.bed    2               Infected
 ```
 
-See the example_data folder for a complete working example with 15 samples (5 control, 5 suspected, 5 infected) demonstrating progressive methylation patterns.
+See the `example_data` folder for a complete working example: **`sample_metadata_30.csv`** (and matching BED files) provides 30 samples (10 per class). You can also use **`sample_metadata.xlsx`** with the same column layout.
 
 ---
 
@@ -211,7 +212,7 @@ This step converts raw CpG BED files into a unified methylKit object (qs format)
 ```bash
 Rscript MethylSense_load_data.R \
   --species "Gallus_gallus" \
-  --sample_sheet ./example_data/sample_metadata.xlsx \
+  --sample_sheet ./example_data/sample_metadata_30.csv \
   --bed_dir ./example_data \
   --output_dir ./preprocessed
 ```
@@ -257,7 +258,7 @@ Runtime: 5-15 minutes
 ```bash
 Rscript MethylSense_general_data_overview.R \
   --analysis_dir ./training/training_* \
-  --sample_sheet ./example_data/sample_metadata.xlsx \
+  --sample_sheet ./example_data/sample_metadata_30.csv \
   --region_sizes "5000" \
   --output_dir ./data_overview \
   --plot_format png,pdf \
@@ -289,11 +290,13 @@ Before using a model for clinical diagnosis, evaluate its performance to select 
 Rscript MethylSense_reviewer.R \
   --model_dir ./training/training_*/windows_5kb/rf/markers_5 \
   --qs_file ./preprocessed/*_methylRaw.qs \
-  --sample_sheet ./example_data/sample_metadata.xlsx \
+  --sample_sheet ./example_data/sample_metadata_30.csv \
+  --sample_id_column ID \
+  --treatment_column Infection \
   --output_subdir ./report
 ```
 
-What happens: The reviewer analyses model performance on the training data, generates ROC curves, confusion matrices, feature importance plots, and creates detailed reports. Compare performance across different models (rf, svm, xgboost) to select the best one for your diagnostic application.
+What happens: The reviewer analyses model performance on the training data, generates ROC curves, confusion matrices, and detailed reports. Compare performance across different models (rf, svm, xgboost) to select the best one for your diagnostic application.
 
 Output: MODEL_EVALUATION_REPORT.md, MODEL_EVALUATION_REPORT.html, figures, tables
 
@@ -431,9 +434,11 @@ Plots generated during model training (use --cpg_report for CpG-level plots).
 </td>
 <td width="33%">
 
-**RF feature importance**
+**Random Forest — example decision tree**
 
-<img src="screenshots/rf_feature_importance.png" alt="Feature Importance" style="max-width: 100%; height: auto;">
+<img src="screenshots/rf_decision_tree_example.png" alt="RF example decision tree" style="max-width: 100%; height: auto;">
+
+*Illustrative classification tree for the selected DMR features*
 
 </td>
 </tr>
@@ -506,11 +511,11 @@ Model evaluation plots generated when reviewing a trained model.
 <tr>
 <td width="50%">
 
-**Preanalytic QC - Covariate distributions**
+**Preanalytic QC - technical covariate associations**
 
-<img src="screenshots/covariate_distribution.png" alt="Covariate Distribution" style="max-width: 100%; height: auto;">
+<img src="screenshots/lmm_associations_summary.png" alt="LMM Associations Summary" style="max-width: 100%; height: auto;">
 
-*Distribution of sample covariates (e.g., storage time) for batch effect assessment*
+*Linear model analysis of technical covariates vs DMR methylation with FDR correction*
 
 </td>
 <td width="50%">

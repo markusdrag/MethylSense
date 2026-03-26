@@ -3,10 +3,10 @@
 # ================================================================================
 # MethylSense Complete Package Installer
 # ================================================================================
-# Version: 5.6.6
-# Date: 2026-01-29
+# Version: 5.7.0
+# Date: 2026-03-24
 # Description: Installs all required R packages for the MethylSense workflow
-#              (load_data, main analysis, and predict scripts)
+#              (load_data, analysis, predict, reviewer, general data overview)
 #
 # Usage: Rscript MethylSense_installer_v1.R
 #
@@ -19,9 +19,11 @@ cat("  METHYLSENSE COMPLETE PACKAGE INSTALLER v1.0.0\n")
 cat("================================================================================\n")
 cat("\n")
 cat("This script will install all required R packages for:\n")
-cat("  • MethylSense_load_data.R       - Data preprocessing\n")
-cat("  • MethylSense_analysis.R        - DMR detection & ML training\n")
-cat("  • MethylSense_predict.R         - Prediction on new samples\n")
+cat("  • MethylSense_load_data.R              - Data preprocessing\n")
+cat("  • MethylSense_analysis.R               - DMR detection & ML training\n")
+cat("  • MethylSense_predict.R                - Prediction on new samples\n")
+cat("  • MethylSense_reviewer.R               - Model evaluation & reporting\n")
+cat("  • MethylSense_general_data_overview.R  - DMR landscape plots\n")
 cat("\n")
 cat("Estimated installation time: 15-45 minutes\n")
 cat("================================================================================\n\n")
@@ -74,6 +76,7 @@ eval_packages <- c(
 # Visualization packages
 viz_packages <- c(
   "ggplot2", # Publication-quality plots
+  "hrbrthemes", # MethylSense default plot theme (theme_ipsum / Arial)
   "pheatmap", # Heatmaps
   "RColorBrewer", # Color palettes
   "viridis", # Colorblind-friendly palettes
@@ -82,6 +85,8 @@ viz_packages <- c(
   "ggridges", # Ridge plots
   "gridExtra", # Arrange multiple plots (for predict script)
   "ggrepel", # Text labels for plots (reviewer script)
+  "ggpubr", # Barplots etc. (MethylSense_reviewer.R)
+  "scales", # Axis/scales (MethylSense_general_data_overview.R)
   "patchwork" # Combine multiple ggplots (CpG barplots)
 )
 

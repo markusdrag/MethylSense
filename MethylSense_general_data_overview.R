@@ -11,19 +11,19 @@
 # - Volcano plots showing effect sizes and significance
 # - Coverage distributions for quality assessment
 # - Chromosomal distribution of DMRs
-# - Effect size characterization
+# - Effect size characterisation
 # - Sample-level methylation patterns
 # - P-value calibration assessment
-# - Region size optimization analysis
+# - Region size optimisation analysis
 #
 # Author: Markus Hodal Drag
-# Version: 5.6.6
+# Version: 5.7.0
 # Date: 2026-01-22
 # GitHub: https://github.com/markusdrag/MethylSense
 #
 # ================================================================================
 
-SCRIPT_VERSION <- "5.6.6"
+SCRIPT_VERSION <- "5.7.0"
 SCRIPT_DATE <- "2026-01-29"
 
 # ================================================================================
@@ -44,86 +44,22 @@ suppressPackageStartupMessages({
   library(ggrepel)
   library(reshape2)
   library(ggridges)
+  library(hrbrthemes)
 })
 
 # ================================================================================
 # METHYLSENSE GLOBAL THEME CONFIGURATION
 # ================================================================================
 
-# Color palette - Dark Green / Teal / Deep Purple theme (publication-ready)
-METHYLSENSE_COLORS <- list(
-  # Primary group colors
-  Control = "#1B5E20", # Dark forest green
-  Suspected = "#006064", # Dark teal/cyan
-  Infected = "#4A148C", # Deep purple
-  Case = "#4A148C", # Alias for Infected
-
-  # Extended palette for multi-group designs
-  Extended = c("#1B5E20", "#006064", "#4A148C", "#B71C1C", "#E65100"),
-
-  # Accent colors for specific plot elements
-  Hyper = "#D32F2F", # Red for hypermethylated
-  Hypo = "#1976D2", # Blue for hypomethylated
-  Neutral = "#757575", # Gray for neutral/non-significant
-
-  # Ribbon/fill colors (lighter versions)
-  Control_light = "#A5D6A7",
-  Suspected_light = "#80DEEA",
-  Infected_light = "#CE93D8"
-)
-
-# Global ggplot2 theme with Helvetica and significantly larger text
-theme_methylsense <- function(base_size = 14) {
-  # Standard font is Helvetica, fallback to sans if unavailable
-  font_family <- "Helvetica"
-  tryCatch(
-    {
-      if (!requireNamespace("extrafont", quietly = TRUE) || !("Helvetica" %in% extrafont::fonts())) {
-        font_family <- "sans"
-      }
-    },
-    error = function(e) font_family <- "sans"
-  )
-
-  theme_minimal(base_size = base_size) +
-    theme(
-      # Font family
-      text = element_text(family = font_family),
-
-      # Title styling - MUCH LARGER
-      plot.title = element_text(face = "bold", size = base_size + 6, color = "#1A1A1A"),
-      plot.subtitle = element_text(size = base_size + 2, color = "#4A4A4A"),
-
-      # Axis styling - LARGER text
-      axis.title = element_text(face = "bold", size = base_size + 2),
-      axis.text = element_text(size = base_size, color = "#2A2A2A", face = "bold"),
-      axis.title.x = element_text(margin = margin(t = 15)),
-      axis.title.y = element_text(margin = margin(r = 15)),
-
-      # Ticks
-      axis.ticks = element_line(color = "black"),
-      axis.ticks.length = unit(0.2, "cm"),
-
-      # Legend styling - LARGER text
-      legend.title = element_text(face = "bold", size = base_size + 2),
-      legend.text = element_text(size = base_size + 1),
-      legend.key.size = unit(1.5, "lines"),
-
-      # Panel styling
-      panel.grid.minor = element_blank(),
-      panel.grid.major = element_line(color = "#D0D0D0", linewidth = 0.5),
-      panel.border = element_rect(fill = NA, color = "black", linewidth = 1),
-      plot.background = element_rect(fill = "white", color = NA),
-      panel.background = element_rect(fill = "white", color = NA),
-
-      # Strip styling for faceted plots
-      strip.text = element_text(face = "bold", size = base_size + 2),
-      strip.background = element_rect(fill = "#EEEEEE", color = "black", linewidth = 0.5),
-
-      # Plot margins
-      plot.margin = margin(20, 20, 20, 20)
-    )
+# Source shared MethylSense theme and colour palette (Rscript-safe path)
+cmd_args_theme <- commandArgs(trailingOnly = FALSE)
+file_arg_theme <- grep("^--file=", cmd_args_theme, value = TRUE)
+script_dir_theme <- if (length(file_arg_theme)) {
+  dirname(normalizePath(sub("^--file=", "", file_arg_theme[1]), mustWork = FALSE))
+} else {
+  getwd()
 }
+source(file.path(script_dir_theme, "MethylSense_theme.R"))
 
 # ================================================================================
 # COMMAND-LINE ARGUMENTS
@@ -308,7 +244,7 @@ sanitize_path <- function(path_string) {
 # ================================================================================
 
 cat("\n================================================================================\n")
-cat("LOADING SAMPLE METADATA\n")
+cat("Loading sample metadata\n")
 cat("================================================================================\n\n")
 
 if (grepl("\\.csv$", opt$sample_sheet, ignore.case = TRUE)) {
@@ -353,7 +289,7 @@ print(study_counts)
 # ================================================================================
 
 cat("\n================================================================================\n")
-cat("ANALYSIS 1: DMR/MR COUNTS ACROSS REGION SIZES\n")
+cat("Analysis 1: DMR/MR counts across region sizes\n")
 cat("================================================================================\n\n")
 
 dmr_counts_list <- list()
@@ -456,13 +392,13 @@ p1 <- ggplot(dmr_counts_long, aes(x = Region_Size_Label, y = Count, fill = Categ
   scale_fill_manual(values = c("Non-significant MRs" = "gray70", "Significant DMRs (FDR<0.05)" = "#E31A1C")) +
   scale_y_continuous(labels = scales::comma) + # Add comma formatting
   labs(
-    title = "DMR Detection Across Region Sizes",
+    title = "DMR detection across region sizes",
     subtitle = sprintf(
       "Analysis of %d region sizes (FDR threshold < %.2f)",
       length(region_sizes), opt$volcano_q_threshold
     ),
-    x = "Genomic Window Size",
-    y = "Number of Regions",
+    x = "Genomic window size",
+    y = "Number of regions",
     fill = "Significance"
   ) +
   theme_methylsense() +
@@ -481,7 +417,7 @@ cat("[COMPLETE] DMR/MR count analysis\n")
 # ================================================================================
 
 cat("\n================================================================================\n")
-cat("LOADING ALL DMR DATA FOR COMPREHENSIVE ANALYSIS\n")
+cat("Loading all DMR data for comprehensive analysis\n")
 cat("================================================================================\n\n")
 
 all_dmr_data <- list()
@@ -533,7 +469,7 @@ cat("\n[COMPLETE] Data loading\n")
 # ================================================================================
 
 cat("\n================================================================================\n")
-cat("ANALYSIS 2: VOLCANO PLOTS\n")
+cat("Analysis 2: Volcano plots\n")
 cat("================================================================================\n\n")
 
 volcano_stats_list <- list()
@@ -606,11 +542,11 @@ p2 <- ggplot(all_volcano_data, aes(x = meth_difference, y = neg_log10_qvalue, co
   scale_color_manual(values = c("Hypomethylated" = "#1F78B4", "Non-significant" = "gray60", "Hypermethylated" = "#E31A1C")) +
   facet_wrap(~Region_Size_Label, scales = "free", ncol = 3) +
   labs(
-    title = "Volcano Plots: Methylation Difference vs Significance",
+    title = "Methylation difference vs significance",
     subtitle = sprintf("Thresholds: |Δβ| > %d%%, FDR < %.2f", opt$volcano_meth_threshold, opt$volcano_q_threshold),
-    x = "Methylation Difference (%)",
+    x = "Methylation difference (%)",
     y = "-log10(FDR)",
-    color = "DMR Category"
+    colour = "DMR category"
   ) +
   theme_methylsense(base_size = 12) +
   theme(
@@ -629,7 +565,7 @@ cat("[COMPLETE] Volcano plot analysis\n")
 # ================================================================================
 
 cat("\n================================================================================\n")
-cat("ANALYSIS 3: COVERAGE DISTRIBUTION\n")
+cat("Analysis 3: Coverage distribution\n")
 cat("================================================================================\n\n")
 
 coverage_stats_list <- list()
@@ -694,11 +630,11 @@ p3 <- ggplot(coverage_plot_data, aes(x = Region_Size_Label, y = Median_Coverage,
   geom_errorbar(aes(ymin = Q1_Coverage, ymax = Q3_Coverage), position = position_dodge(0.9), width = 0.2) +
   scale_fill_manual(values = c("DMR" = "#E31A1C", "Non-DMR" = "gray70")) +
   labs(
-    title = "Coverage Distribution: DMRs vs Non-DMRs",
+    title = "Coverage distribution: DMRs vs non-DMRs",
     subtitle = "Median coverage with interquartile range (error bars)",
-    x = "Region Size",
-    y = "Median Coverage (reads)",
-    fill = "Region Type"
+    x = "Region size",
+    y = "Median coverage (reads)",
+    fill = "Region type"
   ) +
   theme_methylsense() +
   theme(
@@ -716,7 +652,7 @@ cat("[COMPLETE] Coverage distribution analysis\n")
 # ================================================================================
 
 cat("\n================================================================================\n")
-cat("ANALYSIS 4: CHROMOSOMAL DISTRIBUTION\n")
+cat("Analysis 4: Chromosomal distribution\n")
 cat("================================================================================\n\n")
 
 chr_dist_list <- list()
@@ -765,11 +701,11 @@ p4 <- ggplot(chr_plot_data, aes(x = Chromosome, y = DMR_Count, fill = Region_Siz
   scale_fill_viridis_d(option = "plasma") +
   scale_y_continuous(labels = scales::comma) +
   labs(
-    title = "Chromosomal Distribution of DMRs Across Region Sizes",
+    title = "Chromosomal distribution of DMRs across region sizes",
     subtitle = "All chromosomes sorted numerically",
     x = "Chromosome",
     y = "Number of DMRs",
-    fill = "Region Size"
+    fill = "Region size"
   ) +
   theme_methylsense(base_size = 12) +
   theme(
@@ -787,7 +723,7 @@ cat("[COMPLETE] Chromosomal distribution analysis\n")
 # ================================================================================
 
 cat("\n================================================================================\n")
-cat("ANALYSIS 5: EFFECT SIZE DISTRIBUTION\n")
+cat("Analysis 5: Effect size distribution\n")
 cat("================================================================================\n\n")
 
 effect_size_stats_list <- list()
@@ -846,12 +782,12 @@ p5 <- ggplot(all_effect_data, aes(x = meth_difference, y = Region_Size_Label, fi
   scale_fill_viridis_c(option = "plasma", name = "Methylation\nChange (%)") +
   geom_vline(xintercept = 0, linetype = "dashed", color = "white", size = 0.8) +
   labs(
-    title = "Effect Size Distribution Across Region Sizes",
+    title = "Effect size distribution across region sizes",
     subtitle = "Methylation differences (Δβ) for significant DMRs",
-    x = "Methylation Difference (%)",
-    y = "Genomic Window Size"
+    x = "Methylation difference (%)",
+    y = "Genomic window size"
   ) +
-  theme_ridges(grid = TRUE, font_size = 14) +
+  theme_methylsense(base_size = 14, grid = "X") +
   theme(
     legend.position = "right",
     plot.title = element_text(face = "bold", size = 16)
@@ -866,7 +802,7 @@ cat("[COMPLETE] Effect size distribution analysis\n")
 # ================================================================================
 
 cat("\n================================================================================\n")
-cat("ANALYSIS 6: SAMPLE-LEVEL METHYLATION HEATMAPS\n")
+cat("Analysis 6: Sample-level methylation heatmaps\n")
 cat("================================================================================\n\n")
 
 # Prepare annotation colors - intelligent color scheme
@@ -974,7 +910,7 @@ for (region_size in names(all_meth_objects)) {
         show_colnames = FALSE,
         annotation_col = sample_annot,
         annotation_colors = annotation_colors,
-        main = sprintf("Top %d DMRs Methylation Heatmap (%s regions)", opt$heatmap_top_n, region_label),
+        main = sprintf("Top %d DMRs methylation heatmap (%s regions)", opt$heatmap_top_n, region_label),
         fontsize = 10
       )
 
@@ -993,12 +929,12 @@ cat("\n[COMPLETE] Heatmap analysis for all region sizes\n")
 # ================================================================================
 
 cat("\n================================================================================\n")
-cat("GENERATING SUMMARY REPORT\n")
+cat("Generating summary report\n")
 cat("================================================================================\n\n")
 
 summary_text <- c(
   "================================================================================",
-  "DMR LANDSCAPE OVERVIEW - SUMMARY REPORT",
+  "DMR landscape overview - summary report",
   "================================================================================",
   "",
   sprintf("Analysis Date: %s", Sys.Date()),
@@ -1006,11 +942,11 @@ summary_text <- c(
   sprintf("Analysis Directory: %s", if (opt$blind_paths) sanitize_path(opt$analysis_dir) else opt$analysis_dir),
   sprintf("Sample Sheet: %s", if (opt$blind_paths) sanitize_path(opt$sample_sheet) else opt$sample_sheet),
   "",
-  "DATASET OVERVIEW:",
-  sprintf("- Total samples analyzed: %d", nrow(sample_metadata)),
+  "Dataset overview:",
+  sprintf("- Total samples analysed: %d", nrow(sample_metadata)),
   sprintf("- Region sizes tested: %s", paste(region_sizes / 1000, "KB", collapse = ", ")),
   "",
-  "DIFFERENTIAL METHYLATION RESULTS:",
+  "Differential methylation results:",
   ""
 )
 
@@ -1082,7 +1018,7 @@ if (nrow(coverage_stats_df) > 0) {
 
   summary_text <- c(
     summary_text,
-    "COVERAGE QUALITY:",
+    "Coverage quality:",
     sprintf(
       "- DMR coverage: median = %.1f× (IQR: %.1f-%.1f×), mean = %.1f×",
       median_cov_dmr, q1_cov_dmr, q3_cov_dmr, mean_cov_dmr
@@ -1102,11 +1038,11 @@ if (nrow(coverage_stats_df) > 0) {
 
 summary_text <- c(
   summary_text,
-  "OUTPUT FILES:",
+  "Output files:",
   sprintf("- Figures directory: %s", figures_dir),
   sprintf("- Statistics directory: %s", stats_dir),
   "",
-  "GENERATED PLOTS:",
+  "Generated plots:",
   "1. DMR/MR counts bar plot (with counts labeled on bars)",
   "2. Volcano plots (faceted by region size, labeled by rank)",
   "3. Coverage distribution (DMRs vs non-DMRs)",
@@ -1115,7 +1051,7 @@ summary_text <- c(
   "6. Sample-level methylation heatmaps (one per region size)",
   "7. Methylation distribution by infection status (ridge plot)",
   "",
-  "STATISTICS FILES:",
+  "Statistics files:",
   "- dmr_counts_summary.csv",
   "- volcano_plot_stats.csv",
   "- coverage_distribution.csv",
@@ -1123,7 +1059,7 @@ summary_text <- c(
   "- effect_size_distribution.csv",
   "",
   "================================================================================",
-  "ANALYSIS COMPLETE",
+  "Analysis complete",
   "================================================================================"
 )
 
@@ -1401,7 +1337,7 @@ markdown_lines <- c(
   sprintf("*Heatmaps show methylation percentage (0-100%%) for top %d DMRs ranked by FDR. ", opt$heatmap_top_n),
   "Columns represent samples (annotated by infection status and study). ",
   "Rows represent DMRs (ordered by hierarchical clustering). ",
-  "Colour annotation: Control (dark green), Infected (red), Study (ColorBrewer Set2 palette).*",
+  "Colour annotation: Control (dark green), Infected (red), Study (ColourBrewer Set2 palette).*",
   "",
   "---",
   ""
@@ -1529,7 +1465,7 @@ cat("All analyses completed successfully!\n\n")
 # ================================================================================
 
 cat("\n================================================================================\n")
-cat("ANALYSIS 7: RIDGE PLOT - METHYLATION BY INFECTION STATUS (ALL REGIONS)\n")
+cat("Analysis 7: Ridge plot - methylation by infection status (all regions)\n")
 cat("================================================================================\n\n")
 
 # Collect methylation data across ALL region sizes
@@ -1600,9 +1536,9 @@ if (length(all_infection_data) > 0) {
     scale_fill_manual(values = infection_fill_colors) +
     facet_wrap(~Region_Size_Label, scales = "free_x", ncol = 3) +
     labs(
-      title = "DMR Methylation Distribution by Infection Status",
+      title = "DMR methylation distribution by infection status",
       subtitle = "Distribution of methylation (%) across all significant DMR markers",
-      x = "Methylation Level (%)",
+      x = "Methylation level (%)",
       y = "Group",
       fill = "Group"
     ) +
@@ -1621,7 +1557,7 @@ if (length(all_infection_data) > 0) {
 cat("\n[COMPLETE] Ridge plot - infection status\n")
 
 cat("\n================================================================================\n")
-cat("ALL ANALYSES COMPLETE\n")
+cat("All analyses complete\n")
 cat("================================================================================\n\n")
 
 # ================================================================================
