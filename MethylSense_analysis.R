@@ -6580,6 +6580,28 @@ plot_random_forest_viz <- function(model_fit, train_data, dmrs, output_dir, regi
 
             tree_file_base <- file.path(output_dir, "rf_decision_tree_example")
 
+            # Build custom palette matching group levels (outside loop — same for every format)
+            tree_classes <- levels(train_data$label)
+            tree_palette <- vapply(tree_classes, function(cls) {
+              cls_lower <- tolower(cls)
+              if (grepl("control|healthy|neg|ctrl|wt|wildtype", cls_lower)) {
+                METHYLSENSE_COLORS$Control
+              } else if (grepl("infect|case|pos|pathogen|diseas", cls_lower)) {
+                METHYLSENSE_COLORS$Infected
+              } else if (grepl("suspect|intermed|border", cls_lower)) {
+                METHYLSENSE_COLORS$Suspected
+              } else {
+                # Fallback to Extended palette
+                idx <- which(tree_classes == cls)
+                METHYLSENSE_COLORS$Extended[((idx - 1) %% length(METHYLSENSE_COLORS$Extended)) + 1]
+              }
+            }, character(1))
+            # CRITICAL: rpart.plot requires an UNNAMED vector for multiclass box.palette
+            tree_palette <- unname(tree_palette)
+
+            log_msg(paste("[PLOT] Decision tree classes:", paste(tree_classes, collapse = ", ")))
+            log_msg(paste("[PLOT] Decision tree palette:", paste(tree_palette, collapse = ", ")))
+
             for (format in formats_to_save) {
               format <- tolower(format)
               tree_file <- paste0(tree_file_base, ".", format)
@@ -6592,29 +6614,13 @@ plot_random_forest_viz <- function(model_fit, train_data, dmrs, output_dir, regi
                 svg(tree_file, width = 12, height = 8)
               }
 
-              # Build custom palette matching group levels
-              tree_classes <- levels(train_data$label)
-              tree_palette <- sapply(tree_classes, function(cls) {
-                cls_lower <- tolower(cls)
-                if (grepl("control|healthy|neg|ctrl|wt|wildtype", cls_lower)) {
-                  METHYLSENSE_COLORS$Control
-                } else if (grepl("infect|case|pos|pathogen|diseas", cls_lower)) {
-                  METHYLSENSE_COLORS$Infected
-                } else if (grepl("suspect|intermed|border", cls_lower)) {
-                  METHYLSENSE_COLORS$Suspected
-                } else {
-                  # Fallback to Extended palette
-                  idx <- which(tree_classes == cls)
-                  METHYLSENSE_COLORS$Extended[((idx - 1) %% length(METHYLSENSE_COLORS$Extended)) + 1]
-                }
-              })
-
               rpart.plot::rpart.plot(tree_model,
                 main = paste("Example Decision Tree\n", region_label, "-", n_markers, "markers"),
                 type = 3,
                 extra = 104,
                 fallen.leaves = TRUE,
-                box.palette = tree_palette,
+                roundint = FALSE,
+                box.palette = as.list(tree_palette),
                 shadow.col = "gray40",
                 branch.lty = 3,
                 split.font = 2,
