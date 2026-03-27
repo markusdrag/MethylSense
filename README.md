@@ -155,7 +155,7 @@ These columns must be present in your sample sheet:
 <tr><td style="padding: 8px; border-bottom: 1px solid #ddd;">Species</td><td style="padding: 8px; border-bottom: 1px solid #ddd;">Species name used for filtering samples</td><td style="padding: 8px; border-bottom: 1px solid #ddd;">Gallus_gallus</td></tr>
 <tr><td style="padding: 8px; border-bottom: 1px solid #ddd;">bedFileOrg</td><td style="padding: 8px; border-bottom: 1px solid #ddd;">Original BED filename from NanoporeToBED</td><td style="padding: 8px; border-bottom: 1px solid #ddd;">sample_001.CpG.bed</td></tr>
 <tr><td style="padding: 8px; border-bottom: 1px solid #ddd;">bedFile</td><td style="padding: 8px; border-bottom: 1px solid #ddd;">Output filename for converted BED (user-specified)</td><td style="padding: 8px; border-bottom: 1px solid #ddd;">sample_001_8col.bed</td></tr>
-<tr style="border-bottom: 2px solid #333;"><td style="padding: 8px;">treatMethylkit</td><td style="padding: 8px;">Numeric group code for methylKit (any integer: 0, 1, 2, etc.)</td><td style="padding: 8px;">0, 1, 2</td></tr>
+<tr style="border-bottom: 2px solid #333;"><td style="padding: 8px;">treatMethylkit</td><td style="padding: 8px;">Numeric group code encoding each sample's treatment or infection status for methylKit. Each unique integer represents a distinct group (e.g., 0 = Control, 1 = Suspected, 2 = Infected). These codes are mapped to human-readable names via <code>--group_names</code> in ascending numeric order, or explicitly with <code>--treatment_mapping</code> (e.g., <code>0=Control,1=Suspected,2=Infected</code>). Plot colours are then auto-assigned from the MethylSense palette based on group name keywords.</td><td style="padding: 8px;">0, 1, 2</td></tr>
 </tbody>
 </table>
 
@@ -230,15 +230,19 @@ This is the core analysis step. MethylSense identifies differentially methylated
 ```bash
 Rscript MethylSense_analysis.R \
   --qs_file ./preprocessed/*_methylRaw.qs \
+  --sample_sheet ./example_data/sample_metadata_30.csv \
   --output_dir ./training \
   --window_file ./example_data/windows/windows_5kb.bed \
   --models rf,svm,xgboost \
-  --group_names Control,Infected,Suspected \
+  --group_names Control,Suspected,Infected \
+  --group_colors '#1B5E20,#006064,#4A148C' \
   --positive_class Infected \
   --cv_repeats 10 \
   --nested_cv \
   --nested_cv_repeats 5
 ```
+
+> **Tip — Group colours:** The `--group_colors` parameter accepts comma-separated hex codes or colour names, one per group in the same order as `--group_names`. If omitted, colours are auto-assigned from the MethylSense palette based on group name keywords (e.g., "Control" → green, "Infected" → purple). Override with any valid R colour, for example `--group_colors 'darkgreen,orange,darkred'`.
 
 What happens:
 1. Methylation levels are calculated within genomic windows
@@ -737,8 +741,9 @@ Main analysis script for DMR detection and ML classifier training.
 <tr><td style="padding: 10px; border-bottom: 1px solid #ddd;">--qs_file</td><td style="padding: 10px; border-bottom: 1px solid #ddd;">file</td><td style="padding: 10px; border-bottom: 1px solid #ddd;">required</td><td style="padding: 10px; border-bottom: 1px solid #ddd;">Path to preprocessed methylRawList .qs file</td></tr>
 <tr><td style="padding: 10px; border-bottom: 1px solid #ddd;">--sample_sheet</td><td style="padding: 10px; border-bottom: 1px solid #ddd;">file</td><td style="padding: 10px; border-bottom: 1px solid #ddd;">—</td><td style="padding: 10px; border-bottom: 1px solid #ddd;">Sample metadata (Excel/CSV) for covariate adjustment</td></tr>
 <tr><td style="padding: 10px; border-bottom: 1px solid #ddd;">--output_dir</td><td style="padding: 10px; border-bottom: 1px solid #ddd;">dir</td><td style="padding: 10px; border-bottom: 1px solid #ddd;">required</td><td style="padding: 10px; border-bottom: 1px solid #ddd;">Output directory for results</td></tr>
-<tr><td style="padding: 10px; border-bottom: 1px solid #ddd;">--bed_files</td><td style="padding: 10px; border-bottom: 1px solid #ddd;">string</td><td style="padding: 10px; border-bottom: 1px solid #ddd;">—</td><td style="padding: 10px; border-bottom: 1px solid #ddd;">Comma-separated BED files for genomic windows</td></tr>
-<tr><td style="padding: 10px; border-bottom: 1px solid #ddd;">--region_dir</td><td style="padding: 10px; border-bottom: 1px solid #ddd;">dir</td><td style="padding: 10px; border-bottom: 1px solid #ddd;">—</td><td style="padding: 10px; border-bottom: 1px solid #ddd;">Directory containing window BED files</td></tr>
+<tr><td style="padding: 10px; border-bottom: 1px solid #ddd;">--window_file</td><td style="padding: 10px; border-bottom: 1px solid #ddd;">file</td><td style="padding: 10px; border-bottom: 1px solid #ddd;">—</td><td style="padding: 10px; border-bottom: 1px solid #ddd;">Path to a single genomic window BED file (e.g., windows_5kb.bed)</td></tr>
+<tr><td style="padding: 10px; border-bottom: 1px solid #ddd;">--bed_files</td><td style="padding: 10px; border-bottom: 1px solid #ddd;">string</td><td style="padding: 10px; border-bottom: 1px solid #ddd;">—</td><td style="padding: 10px; border-bottom: 1px solid #ddd;">Comma-separated BED files for genomic windows (alternative to --window_file)</td></tr>
+<tr><td style="padding: 10px; border-bottom: 1px solid #ddd;">--region_dir</td><td style="padding: 10px; border-bottom: 1px solid #ddd;">dir</td><td style="padding: 10px; border-bottom: 1px solid #ddd;">—</td><td style="padding: 10px; border-bottom: 1px solid #ddd;">Directory containing multiple window BED files (alternative to --window_file)</td></tr>
 <tr><td style="padding: 10px; border-bottom: 1px solid #ddd;">--models</td><td style="padding: 10px; border-bottom: 1px solid #ddd;">string</td><td style="padding: 10px; border-bottom: 1px solid #ddd;">rf,svm,glmnet,nnet,knn,lda,nb</td><td style="padding: 10px; border-bottom: 1px solid #ddd;">ML models to train</td></tr>
 <tr><td style="padding: 10px;">--cores</td><td style="padding: 10px;">int</td><td style="padding: 10px;">4</td><td style="padding: 10px;">CPU cores for parallel model training</td></tr>
 </tbody>
@@ -848,7 +853,7 @@ Main analysis script for DMR detection and ML classifier training.
 </tr>
 </thead>
 <tbody>
-<tr><td style="padding: 10px; border-bottom: 1px solid #ddd;">--create_plots</td><td style="padding: 10px; border-bottom: 1px solid #ddd;">flag</td><td style="padding: 10px; border-bottom: 1px solid #ddd;">true</td><td style="padding: 10px; border-bottom: 1px solid #ddd;">Generate visualizations</td></tr>
+<tr><td style="padding: 10px; border-bottom: 1px solid #ddd;">--create_plots</td><td style="padding: 10px; border-bottom: 1px solid #ddd;">flag</td><td style="padding: 10px; border-bottom: 1px solid #ddd;">true</td><td style="padding: 10px; border-bottom: 1px solid #ddd;">Generate visualisations</td></tr>
 <tr><td style="padding: 10px; border-bottom: 1px solid #ddd;">--no_plots</td><td style="padding: 10px; border-bottom: 1px solid #ddd;">flag</td><td style="padding: 10px; border-bottom: 1px solid #ddd;">false</td><td style="padding: 10px; border-bottom: 1px solid #ddd;">Disable plot generation</td></tr>
 <tr><td style="padding: 10px; border-bottom: 1px solid #ddd;">--plot_format</td><td style="padding: 10px; border-bottom: 1px solid #ddd;">string</td><td style="padding: 10px; border-bottom: 1px solid #ddd;">png</td><td style="padding: 10px; border-bottom: 1px solid #ddd;">Output format: png, jpg, svg, pdf, all</td></tr>
 <tr><td style="padding: 10px;">--plot_dpi</td><td style="padding: 10px;">int</td><td style="padding: 10px;">300</td><td style="padding: 10px;">Resolution (300 standard, 600 high-res, 150 draft)</td></tr>
