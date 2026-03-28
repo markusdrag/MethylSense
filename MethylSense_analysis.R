@@ -109,8 +109,8 @@
 #   IMPROVED: Professional UK English formatting in reports
 #   IMPROVED: Complete model comparison with technical details
 #
-# v4.9.0 (2025-11-25) - PUBLIC RELEASE
-#   NEW: Public version with traditional BED file analysis only
+# v4.9.0 (2025-11-25) - OPEN-SOURCE RELEASE
+#   NEW: Open-source release with traditional BED file analysis
 #   NOTE: Users must provide their own BED files for genomic window analysis
 #
 # v4.8.0 (2025-11-21) - FINAL FRIDAY EDITION
@@ -1183,8 +1183,8 @@ create_output_structure <- function(base_output_dir) {
     # Removed verbose logging for directory creation
   }
 
-  # cv_analysis_plots: only created on-demand when infopt strategy generates plots
-  # (will be created when needed in the strategy functions, not here)
+  # cv_analysis_plots: only created on-demand when CV analysis generates plots
+  # (will be created when needed, not here)
 
   # clustering_analysis: only created on-demand when clustering is actually performed
   # (will be created when calling clustering functions, not here)
@@ -3091,10 +3091,10 @@ if (!is.null(opt$`list-models`) && opt$`list-models`) {
 # ===== END immediate check =====
 # ===== END --list-models check =====
 
-# Set default strategy (only "traditional" available in public version)
+# Set default strategy to "traditional" (BED file input)
 opt$strategy <- "traditional"
 
-# INSERT NEW PARSING LOGIC HERE:
+# Parse options:
 # Parse the new group options
 
 # Parse group names
@@ -3516,12 +3516,12 @@ apply_predefined_split <- function(input_data, assignments, sample_names, output
 # HELPER FUNCTIONS
 # ---------------------------
 
-# INSERT NEW HELPER FUNCTIONS HERE:
+# Helper functions:
 
-# Simple cache key generator (non-patented version)
+# Simple cache key generator
 generate_regioncounts_cache_key <- function(meth, gr, min_coverage) {
   # Generate a simple hash-based cache key for regionCounts operations
-  # This is a basic implementation for the public version
+  # Generate a hash-based cache key from the input parameters
 
   # Get sample IDs and region count
   n_samples <- length(meth)
@@ -7244,17 +7244,17 @@ regionStats <- function(methylRawList_obj, regions_gr, column = "perc.meth") {
 }
 
 # ---------------------------
-# WINDOW GENERATION FUNCTIONS - NOT INCLUDED
+# WINDOW GENERATION FUNCTIONS
 # ---------------------------
-# This public version ONLY supports traditional BED file input.
-# Users must provide their own genomic regions via --window_file parameter.
-# Use GenomeToWindows (github.com/markusdrag/GenomeToWindows) to generate regions.
+# MethylSense requires pre-computed genomic regions via --window_file.
+# Users must provide their own BED files (e.g., from GenomeToWindows).
+# See: github.com/markusdrag/GenomeToWindows
 # ---------------------------
 
-# Stub functions that produce clear error messages
+# Stub functions — MethylSense expects pre-computed BED files
 extract_cpg_positions <- function(meth_list) {
   stop(
-    "ERROR: This function is not available in the public version.\n",
+    "ERROR: Automated CpG extraction is not supported.\n",
     "       Please provide genomic regions via --window_file or --region_dir.\n",
     "       Use GenomeToWindows (github.com/markusdrag/GenomeToWindows) to generate windowed regions."
   )
@@ -7262,7 +7262,7 @@ extract_cpg_positions <- function(meth_list) {
 
 create_tiled_windows <- function(cpg_positions, window_size, min_cpgs) {
   stop(
-    "ERROR: This function is not available in the public version.\n",
+    "ERROR: Automated window generation is not supported.\n",
     "       Please provide genomic regions via --window_file or --region_dir.\n",
     "       Use GenomeToWindows (github.com/markusdrag/GenomeToWindows) to generate windowed regions."
   )
@@ -7270,7 +7270,7 @@ create_tiled_windows <- function(cpg_positions, window_size, min_cpgs) {
 
 create_sliding_windows <- function(cpg_positions, window_size, min_cpgs, step_size = NULL) {
   stop(
-    "ERROR: This function is not available in the public version.\n",
+    "ERROR: Automated window generation is not supported.\n",
     "       Please provide genomic regions via --window_file or --region_dir.\n",
     "       Use GenomeToWindows (github.com/markusdrag/GenomeToWindows) to generate windowed regions."
   )
@@ -7278,7 +7278,7 @@ create_sliding_windows <- function(cpg_positions, window_size, min_cpgs, step_si
 
 create_adaptive_windows <- function(cpg_positions, target_size, min_cpgs, output_dir = ".") {
   stop(
-    "ERROR: This function is not available in the public version.\n",
+    "ERROR: Automated window generation is not supported.\n",
     "       Please provide genomic regions via --window_file or --region_dir.\n",
     "       Use GenomeToWindows (github.com/markusdrag/GenomeToWindows) to generate windowed regions."
   )
@@ -7286,12 +7286,12 @@ create_adaptive_windows <- function(cpg_positions, target_size, min_cpgs, output
 
 generate_windows_from_methylation <- function(meth_list, window_sizes, strategy, min_cpgs, output_dir = ".") {
   stop(
-    "ERROR: Automated window generation is not available in the public version.\n",
+    "ERROR: Automated window generation is not supported.\n",
     "       Please provide genomic regions via --window_file or --region_dir.\n",
     "\n",
     "       Tools for generating BED files:\n",
-    "         • GenomeToWindows: github.com/markusdrag/GenomeToWindows\n",
-    "         • NanoporeToBED-Pipeline: github.com/markusdrag/NanoporeToBED-Pipeline"
+    "         GenomeToWindows: github.com/markusdrag/GenomeToWindows\n",
+    "         NanoporeToBED-Pipeline: github.com/markusdrag/NanoporeToBED-Pipeline"
   )
 }
 
@@ -7604,9 +7604,9 @@ if (!is.null(opt$train_test_file)) {
 }
 
 # ============================================================================
-# STRATEGY VALIDATION - PUBLIC VERSION
+# STRATEGY VALIDATION
 # ============================================================================
-# This public version uses the "traditional" approach: analysis of user-provided
+# MethylSense uses the "traditional" approach: analysis of user-provided
 # genomic regions (BED format). This requires:
 #   --window_file <path/to/regions.bed>  OR
 #   --region_dir <path/to/bed_directory>
@@ -7978,7 +7978,7 @@ if (!exists("logging_initialized") || !logging_initialized) {
 if (opt$strategy == "traditional") {
   cat("[DIR] BED files from:", opt$region_dir, "\n")
 } else {
-  stop("[ERROR] Invalid strategy. Only 'traditional' supported in public version.")
+  stop("[ERROR] Invalid strategy. Only 'traditional' is supported. Please provide BED files via --window_file or --region_dir.")
 }
 
 cat("[CONFIG] Cores:", opt$cores, "| Reproducible:", opt$reproducible, "| Models:", opt$models, "| Markers:", opt$marker_range, "\n")
@@ -8653,7 +8653,7 @@ if (opt$strategy == "traditional") {
   log_msg(paste("[SUCCESS] Loaded", length(region_data), "region sets for analysis"))
 } else {
   stop(
-    "[ERROR] Invalid strategy. This public version only supports strategy='traditional'.\n",
+    "[ERROR] Invalid strategy. Only strategy='traditional' is supported.\n",
     "       Please provide genomic regions via --window_file or --region_dir."
   )
 }
@@ -10310,7 +10310,7 @@ for (region_idx in seq_along(region_data)) {
         # Check for very small classes (< 4 samples)
         class_counts <- table(ml_data_subset$label)
 
-        # ============== INSERT THE NEW CODE HERE ==============
+        # ============== ADDITIONAL MARKER PROCESSING ==============
         insufficient_classes <- character(0)
         for (class_name in names(class_counts)) {
           n_samples <- class_counts[class_name]
