@@ -9563,10 +9563,29 @@ for (region_idx in seq_along(region_data)) {
                   }
                 }
                 
+                # Impute missing values to prevent methylKit "logical subscript too long" errors
+                for (col in names(cov_df)) {
+                  if (any(is.na(cov_df[[col]]))) {
+                    if (is.numeric(cov_df[[col]])) {
+                      med_val <- median(cov_df[[col]], na.rm = TRUE)
+                      cov_df[[col]][is.na(cov_df[[col]])] <- med_val
+                      log_msg(paste("[WARN] Imputed missing values in covariate", col, "with median:", round(med_val, 2)))
+                    } else {
+                      tt <- table(cov_df[[col]])
+                      mode_val <- names(tt)[which.max(tt)]
+                      cov_df[[col]][is.na(cov_df[[col]])] <- as.character(mode_val)
+                      if (is.factor(cov_df[[col]])) {
+                          cov_df[[col]] <- as.factor(cov_df[[col]]) # Re-factor to match
+                      }
+                      log_msg(paste("[WARN] Imputed missing values in covariate", col, "with mode:", mode_val))
+                    }
+                  }
+                }
+                
                 # Filter out single-level (zero-variance) covariates
                 valid_covs <- character()
                 for (col in names(cov_df)) {
-                  unique_vals <- unique(na.omit(cov_df[[col]]))
+                  unique_vals <- unique(cov_df[[col]])
                   if (length(unique_vals) > 1) {
                     valid_covs <- c(valid_covs, col)
                   } else {
