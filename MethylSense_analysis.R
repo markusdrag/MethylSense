@@ -9563,42 +9563,45 @@ for (region_idx in seq_along(region_data)) {
                   }
                 }
                 
-                # Impute missing values to prevent methylKit "logical subscript too long" errors
+                # Filter out covariates with missing values (NAs)
+                # methylKit will drop any sample row with an NA, creating an irreversible matrix mismatch
+                valid_covs <- character()
                 for (col in names(cov_df)) {
                   if (any(is.na(cov_df[[col]]))) {
-                    if (is.numeric(cov_df[[col]])) {
-                      med_val <- median(cov_df[[col]], na.rm = TRUE)
-                      cov_df[[col]][is.na(cov_df[[col]])] <- med_val
-                      log_msg(paste("[WARN] Imputed missing values in covariate", col, "with median:", round(med_val, 2)))
-                    } else {
-                      tt <- table(cov_df[[col]])
-                      mode_val <- names(tt)[which.max(tt)]
-                      cov_df[[col]][is.na(cov_df[[col]])] <- as.character(mode_val)
-                      if (is.factor(cov_df[[col]])) {
-                          cov_df[[col]] <- as.factor(cov_df[[col]]) # Re-factor to match
-                      }
-                      log_msg(paste("[WARN] Imputed missing values in covariate", col, "with mode:", mode_val))
-                    }
+                    log_msg(paste("[WARN] Dropping covariate", col, "because it contains missing (NA) data. methylKit requires complete data."))
+                  } else {
+                    valid_covs <- c(valid_covs, col)
                   }
+                }
+                
+                # Apply NA filter
+                if (length(valid_covs) == 0) {
+                  cov_df <- NULL
+                } else if (length(valid_covs) < ncol(cov_df)) {
+                  cov_df <- cov_df[, valid_covs, drop = FALSE]
                 }
                 
                 # Filter out single-level (zero-variance) covariates
-                valid_covs <- character()
-                for (col in names(cov_df)) {
-                  unique_vals <- unique(cov_df[[col]])
-                  if (length(unique_vals) > 1) {
-                    valid_covs <- c(valid_covs, col)
-                  } else {
-                    log_msg(paste("[WARN] Dropping covariate", col, "because it has < 2 unique values. This would cause contrast errors."))
+                if (!is.null(cov_df)) {
+                  valid_covs_var <- character()
+                  for (col in names(cov_df)) {
+                    unique_vals <- unique(cov_df[[col]])
+                    if (length(unique_vals) > 1) {
+                      valid_covs_var <- c(valid_covs_var, col)
+                    } else {
+                      log_msg(paste("[WARN] Dropping covariate", col, "because it has < 2 unique values. This would cause contrast errors."))
+                    }
                   }
-                }
-                
-                if (length(valid_covs) == 0) {
-                  log_msg("[WARN] No valid covariates remaining. Proceeding without covariates.")
-                  cov_df <- NULL
+                  
+                  if (length(valid_covs_var) == 0) {
+                    log_msg("[WARN] No valid covariates remaining after NA and variance filtering. Proceeding without covariates.")
+                    cov_df <- NULL
+                  } else {
+                    cov_df <- cov_df[, valid_covs_var, drop = FALSE]
+                    log_msg(paste("[COVA] Using", ncol(cov_df), "covariates for", nrow(cov_df), "samples"))
+                  }
                 } else {
-                  cov_df <- cov_df[, valid_covs, drop = FALSE]
-                  log_msg(paste("[COVA] Using", ncol(cov_df), "covariates for", nrow(cov_df), "samples"))
+                  log_msg("[WARN] No valid covariates remaining. Proceeding without covariates.")
                 }
               }
             }
