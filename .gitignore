@@ -1,5 +1,3 @@
 deploy_to_github.sh
-github/_readme_build/
-
-# Patent-sensitive private edition — do not publish to public GitHub
-MethylSense_Private/
+_readme_build/
+.DS_Store
