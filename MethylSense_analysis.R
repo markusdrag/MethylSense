@@ -9562,7 +9562,25 @@ for (region_idx in seq_along(region_data)) {
                     cov_df[[col]] <- as.factor(cov_df[[col]])
                   }
                 }
-                log_msg(paste("[COVA] Using", ncol(cov_df), "covariates for", nrow(cov_df), "samples"))
+                
+                # Filter out single-level (zero-variance) covariates
+                valid_covs <- character()
+                for (col in names(cov_df)) {
+                  unique_vals <- unique(na.omit(cov_df[[col]]))
+                  if (length(unique_vals) > 1) {
+                    valid_covs <- c(valid_covs, col)
+                  } else {
+                    log_msg(paste("[WARN] Dropping covariate", col, "because it has < 2 unique values. This would cause contrast errors."))
+                  }
+                }
+                
+                if (length(valid_covs) == 0) {
+                  log_msg("[WARN] No valid covariates remaining. Proceeding without covariates.")
+                  cov_df <- NULL
+                } else {
+                  cov_df <- cov_df[, valid_covs, drop = FALSE]
+                  log_msg(paste("[COVA] Using", ncol(cov_df), "covariates for", nrow(cov_df), "samples"))
+                }
               }
             }
           } else {
