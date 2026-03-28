@@ -9401,7 +9401,7 @@ if (opt$generate_markdown) {
             geom_text(
               data = annotation_df,
               aes(x = x, y = y, label = label, hjust = hjust, vjust = vjust),
-              family = "Arial", size = 4, color = "black", inherit.aes = FALSE
+              family = .methylsense_base_font, size = 4, color = "black", inherit.aes = FALSE
             ) +
             facet_wrap(~metric, scales = "free_y", nrow = 2) +
             scale_color_brewer(palette = "Set1") +
