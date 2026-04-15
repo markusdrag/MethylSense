@@ -1,3 +1,5 @@
 deploy_to_github.sh
 _readme_build/
 .DS_Store
+github/_readme_build/
+MethylSense_Private/
