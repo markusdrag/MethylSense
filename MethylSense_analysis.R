@@ -5,8 +5,8 @@
 # ================================================================================
 #
 # Script Name: MethylSense_analysis.R
-# Version: 5.7.0 (Public Release)
-# Date: 2026-01-22
+# Version: 5.7.1 (Public Release)
+# Date: 2026-05-01
 # GitHub: https://github.com/markusdrag/MethylSense
 # Authors: Markus Hodal Drag, Christina Hvilsom, Louise Ladefoged Poulsen,
 #          Henrik Elvang Jensen, Stamatios Alan Tahas, Christoph Leineweber,
@@ -33,12 +33,12 @@
 #   If you use MethylSense, please cite:
 #
 #   Drag MH, Hvilsom C, Poulsen LL, Jensen HE, Tahas SA, Leineweber C,
-#   Cray C, Bertelsen MF, Bojesen AM (2025)
-#   New high accuracy diagnostics for avian Aspergillus fumigatus infection
-#   using Nanopore methylation sequencing of host cell-free DNA and machine
-#   learning prediction.
-#   bioRxiv 2025.04.11.648151
-#   https://doi.org/10.1101/2025.04.11.648151
+#   Cray C, Bertelsen MF, Bojesen AM.
+#   MethylSense: high accuracy machine learning-based diagnostics for
+#   Aspergillus fumigatus infection in chickens using host cell-free DNA
+#   methylation and Nanopore sequencing.
+#   J Clin Microbiol 0:e01054-25.
+#   https://doi.org/10.1128/jcm.01054-25
 #
 # Contact: Markus Hodal Drag (first author)
 # License: Academic Free License 3.0 (AFL-3.0)
@@ -47,6 +47,10 @@
 # ================================================================================
 # VERSION HISTORY
 # ================================================================================
+# v5.7.1 (2026-05-01) - CITATION UPDATE & OUTPUT_DIR FIX
+#   UPDATED: Citation updated from bioRxiv preprint to official JCM publication
+#   CITATION: Drag MH et al. J Clin Microbiol 0:e01054-25
+#
 # v5.7.0 (2026-03-23) - THEME OVERHAUL & UK ENGLISH
 #   UPDATED: New hrbrthemes-based theme_methylsense() for publication-ready plots
 #   UPDATED: All plot text converted to sentence case (no more Title Case)
@@ -204,8 +208,8 @@
 # ================================================================================
 
 # Script version for logging
-SCRIPT_VERSION <- "5.7.0"
-SCRIPT_DATE <- "2026-01-30"
+SCRIPT_VERSION <- "5.7.1"
+SCRIPT_DATE <- "2026-05-01"
 
 cat("\n")
 cat("================================================================================\n")
@@ -234,11 +238,11 @@ cat("  * Species-agnostic methylation biomarker discovery\n")
 cat("\n")
 cat("Please cite:\n")
 cat("  Drag MH, Hvilsom C, Poulsen LL, Jensen HE, Tahas SA, Leineweber C,\n")
-cat("  Cray C, Bertelsen MF, Bojesen AM (2025)\n")
-cat("  New high accuracy diagnostics for avian Aspergillus fumigatus infection\n")
-cat("  using Nanopore methylation sequencing of host cell-free DNA and machine\n")
-cat("  learning prediction. bioRxiv 2025.04.11.648151\n")
-cat("  https://doi.org/10.1101/2025.04.11.648151\n")
+cat("  Cray C, Bertelsen MF, Bojesen AM.\n")
+cat("  MethylSense: high accuracy machine learning-based diagnostics for\n")
+cat("  Aspergillus fumigatus infection in chickens using host cell-free DNA\n")
+cat("  methylation and Nanopore sequencing. J Clin Microbiol 0:e01054-25.\n")
+cat("  https://doi.org/10.1128/jcm.01054-25\n")
 cat("================================================================================\n\n")
 
 # ================================================================================
@@ -446,11 +450,11 @@ show_help <- function() {
   cat("CITATION:\n")
   cat("================================================================================\n")
   cat("  Drag MH, Hvilsom C, Poulsen LL, Jensen HE, Tahas SA, Leineweber C,\n")
-  cat("  Cray C, Bertelsen MF, Bojesen AM (2025)\n")
-  cat("  New high accuracy diagnostics for avian Aspergillus fumigatus infection\n")
-  cat("  using Nanopore methylation sequencing of host cell-free DNA and machine\n")
-  cat("  learning prediction. bioRxiv 2025.04.11.648151\n")
-  cat("  https://doi.org/10.1101/2025.04.11.648151\n")
+  cat("  Cray C, Bertelsen MF, Bojesen AM.\n")
+  cat("  MethylSense: high accuracy machine learning-based diagnostics for\n")
+  cat("  Aspergillus fumigatus infection in chickens using host cell-free DNA\n")
+  cat("  methylation and Nanopore sequencing. J Clin Microbiol 0:e01054-25.\n")
+  cat("  https://doi.org/10.1128/jcm.01054-25\n")
   cat("================================================================================\n\n")
 }
 
@@ -594,8 +598,8 @@ if ("--version" %in% args) {
   cat("\n")
   cat("Citation:\n")
   cat("  Drag MH, Hvilsom C, Poulsen LL, Jensen HE, Tahas SA, Leineweber C,\n")
-  cat("  Cray C, Bertelsen MF, Bojesen AM (2025)\n")
-  cat("  bioRxiv 2025.04.11.648151 | doi: 10.1101/2025.04.11.648151\n")
+  cat("  Cray C, Bertelsen MF, Bojesen AM.\n")
+  cat("  J Clin Microbiol 0:e01054-25 | doi: 10.1128/jcm.01054-25\n")
   cat("\n")
   cat("For full help: Rscript MethylSense.R --help\n")
   cat("For output structure: Rscript MethylSense.R --show_output\n")

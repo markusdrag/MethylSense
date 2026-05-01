@@ -7,21 +7,21 @@
 #          → methylKit methylRaw objects for downstream DMR and ML analysis
 #
 # Author: Markus Hodal Drag
-# Version: 5.7.0
-# Release Date: 2026-01-22
+# Version: 5.7.1
+# Release Date: 2026-05-01
 # GitHub: https://github.com/markusdrag/MethylSense
 #
 # Citation:
 #   Drag MH, Hvilsom C, Poulsen LL, Jensen HE, Tahas SA, Leineweber C,
-#   Cray C, Bertelsen MF, Bojesen AM (2025)
-#   New high accuracy diagnostics for avian Aspergillus fumigatus infection
-#   using Nanopore methylation sequencing of host cell-free DNA and machine
-#   learning prediction. bioRxiv 2025.04.11.648151
-#   https://doi.org/10.1101/2025.04.11.648151
+#   Cray C, Bertelsen MF, Bojesen AM.
+#   MethylSense: high accuracy machine learning-based diagnostics for
+#   Aspergillus fumigatus infection in chickens using host cell-free DNA
+#   methylation and Nanopore sequencing. J Clin Microbiol 0:e01054-25.
+#   https://doi.org/10.1128/jcm.01054-25
 # ================================================================================
 
-SCRIPT_VERSION <- "5.7.0"
-SCRIPT_DATE <- "2026-01-29"
+SCRIPT_VERSION <- "5.7.1"
+SCRIPT_DATE <- "2026-05-01"
 
 suppressPackageStartupMessages({
   library(optparse)
@@ -148,11 +148,11 @@ cat(paste("R Version:", R.version.string, "\n"))
 cat("\n")
 cat("Please cite:\n")
 cat("  Drag MH, Hvilsom C, Poulsen LL, Jensen HE, Tahas SA, Leineweber C,\n")
-cat("  Cray C, Bertelsen MF, Bojesen AM (2025)\n")
-cat("  New high accuracy diagnostics for avian Aspergillus fumigatus infection\n")
-cat("  using Nanopore methylation sequencing of host cell-free DNA and machine\n")
-cat("  learning prediction. bioRxiv 2025.04.11.648151\n")
-cat("  https://doi.org/10.1101/2025.04.11.648151\n")
+cat("  Cray C, Bertelsen MF, Bojesen AM.\n")
+cat("  MethylSense: high accuracy machine learning-based diagnostics for\n")
+cat("  Aspergillus fumigatus infection in chickens using host cell-free DNA\n")
+cat("  methylation and Nanopore sequencing. J Clin Microbiol 0:e01054-25.\n")
+cat("  https://doi.org/10.1128/jcm.01054-25\n")
 cat("================================================================================\n\n")
 
 # ================================================================================

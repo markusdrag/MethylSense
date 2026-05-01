@@ -1445,7 +1445,7 @@ Benchmarks for 30-50 samples, 2 groups, 8 CPU cores.
 
 If you use MethylSense in your research, please cite:
 
-> Drag MH, Hvilsom C, Poulsen LL, Jensen HE, Tahas SA, Leineweber C, Cray C, Bertelsen MF, Bojesen AM (2025). New high accuracy diagnostics for avian Aspergillus fumigatus infection using Nanopore methylation sequencing of host cell-free DNA and machine learning prediction. bioRxiv 2025.04.11.648151. https://doi.org/10.1101/2025.04.11.648151
+> Drag MH, Hvilsom C, Poulsen LL, Jensen HE, Tahas SA, Leineweber C, Cray C, Bertelsen MF, Bojesen AM. MethylSense: high accuracy machine learning-based diagnostics for Aspergillus fumigatus infection in chickens using host cell-free DNA methylation and Nanopore sequencing. J Clin Microbiol 0:e01054-25. https://doi.org/10.1128/jcm.01054-25
 
 ---
 

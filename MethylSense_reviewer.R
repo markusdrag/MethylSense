@@ -3,10 +3,17 @@
 # ============================================================================
 # Comprehensive Model Validation and Technical Quality Assessment
 # ============================================================================
-# VERSION: 5.7.0
-# DATE: 2026-03-23
+# VERSION: 5.7.1
+# DATE: 2026-05-01
 # GitHub: https://github.com/markusdrag/MethylSense
 # CHANGELOG:
+#   v5.7.1  - BUGFIX: Renamed --output_subdir to --output_dir for consistency
+#           - FIX: --output_dir now supports absolute paths (used as-is) and relative
+#                  paths (treated as subdirectory of model_dir)
+#           - FIX: Reproducibility command in markdown now correctly references opt$output_dir
+#           - UPDATED: Citation updated from bioRxiv preprint to official JCM publication
+#           - CITATION: Drag MH et al. (2025) J Clin Microbiol 0:e01054-25
+#           - DOI: https://doi.org/10.1128/jcm.01054-25
 #   v5.13.5 - BUGFIX: Time series figures (Figure 5, 6) now display correctly
 #          - FIX 1: Changed hardcoded fig_ext to .png in markdown references (lines 9589, 9597)
 #          - ISSUE: Files saved as .png but markdown referenced fig_ext (e.g., .jpeg) causing broken links
@@ -426,7 +433,7 @@
 #   v5.4.3 - CRITICAL: REMOVED LATEX FALLBACK + METHYLSENSE BRANDING
 #          - BREAKING: Completely removed LaTeX fallback - pagedown ONLY for PDF generation
 #          - NEW: MethylSense branding and GitHub link in report header
-#          - NEW: Primary citation (Drag et al. 2025 bioRxiv) in References section
+#          - NEW: Primary citation (Drag et al. 2025 J Clin Microbiol) in References section
 #          - NEW: Author attribution (Markus Hodal Drag) throughout all scripts
 #          - FIX: Version numbers synchronized across ALL scripts (5.4.3)
 #          - FIX: Enhanced Unicode sanitization with comprehensive Greek letter support (β, η, θ, etc.)
@@ -664,8 +671,8 @@
 #   v6.3.2 - Fixed PCA/UMAP
 # ============================================================================
 
-SCRIPT_VERSION <- "5.7.0"
-SCRIPT_DATE <- "2026-03-23"
+SCRIPT_VERSION <- "5.7.1"
+SCRIPT_DATE <- "2026-05-01"
 
 # ================================================================================
 # METHYLSENSE GLOBAL THEME CONFIGURATION
@@ -1004,9 +1011,9 @@ opts <- list(
     type = "integer", default = 3,
     help = "CV repeats [default: 3]"
   ),
-  make_option(c("-o", "--output_subdir"),
+  make_option(c("-o", "--output_dir"),
     type = "character", default = "model_evaluation",
-    help = "Output subdirectory [default: model_evaluation]"
+    help = "Output directory (absolute path or subdirectory name) [default: model_evaluation]"
   ),
   make_option(c("-p", "--n_cores"),
     type = "integer", default = 4,
@@ -3277,7 +3284,12 @@ test_samples <- character(0)
 cat("          [INFO] Using all", length(train_samples), "samples for analysis\n")
 
 # Create output directory
-output_dir <- file.path(opt$model_dir, opt$output_subdir)
+# Support absolute paths (use as-is) or relative paths (under model_dir)
+if (startsWith(opt$output_dir, "/") || grepl("^[A-Za-z]:", opt$output_dir)) {
+  output_dir <- opt$output_dir
+} else {
+  output_dir <- file.path(opt$model_dir, opt$output_dir)
+}
 dir.create(output_dir, recursive = TRUE, showWarnings = FALSE)
 
 model_name <- paste0(species_name, "_", window_size, "bp_", model_type)
@@ -12696,7 +12708,7 @@ if (opt$generate_markdown) {
   md <- c(md, "")
   md <- c(md, "### Primary Citation")
   md <- c(md, "")
-  md <- c(md, "**Drag MH**, Hvilsom C, Poulsen LL, Jensen HE, Tahas SA, Leineweber C, Cray C, Bertelsen MF, Bojesen AM (2025). New high accuracy diagnostics for avian *Aspergillus fumigatus* infection using Nanopore methylation sequencing of host cell-free DNA and machine learning prediction. *bioRxiv* 2025.04.11.648151. [https://doi.org/10.1101/2025.04.11.648151](https://doi.org/10.1101/2025.04.11.648151)")
+  md <- c(md, "**Drag MH**, Hvilsom C, Poulsen LL, Jensen HE, Tahas SA, Leineweber C, Cray C, Bertelsen MF, Bojesen AM. MethylSense: high accuracy machine learning-based diagnostics for *Aspergillus fumigatus* infection in chickens using host cell-free DNA methylation and Nanopore sequencing. *J Clin Microbiol* 0:e01054-25. [https://doi.org/10.1128/jcm.01054-25](https://doi.org/10.1128/jcm.01054-25)")
   md <- c(md, "")
   md <- c(md, "### MethylSense Software")
   md <- c(md, "")

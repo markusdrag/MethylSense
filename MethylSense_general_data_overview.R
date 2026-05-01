@@ -17,14 +17,14 @@
 # - Region size optimisation analysis
 #
 # Author: Markus Hodal Drag
-# Version: 5.7.0
-# Date: 2026-01-22
+# Version: 5.7.1
+# Date: 2026-05-01
 # GitHub: https://github.com/markusdrag/MethylSense
 #
 # ================================================================================
 
-SCRIPT_VERSION <- "5.7.0"
-SCRIPT_DATE <- "2026-01-29"
+SCRIPT_VERSION <- "5.7.1"
+SCRIPT_DATE <- "2026-05-01"
 
 # ================================================================================
 # LOAD REQUIRED LIBRARIES
