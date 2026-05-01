@@ -10697,10 +10697,9 @@ for (region_idx in seq_along(region_data)) {
           }
         }
 
-        # Check if we have enough samples for machine learning
+        # Note: ML on small sample sizes (< 10) may result in instability
         if (nrow(ml_data) < 10) {
-          log_msg("[WARN] Too few samples for machine learning")
-          next
+          log_msg("[WARN] Proceeding with ML on < 10 total samples. Results may be unstable.")
         }
 
         # CRITICAL FIX: Remove any rows with NA values
