@@ -10744,8 +10744,7 @@ for (region_idx in seq_along(region_data)) {
 
         # Verify we still have enough samples
         if (nrow(ml_data) < 10) {
-          log_msg("[WARN] Too few samples after NA removal")
-          next
+          log_msg("[WARN] Proceeding with ML on < 10 samples after NA removal.")
         }
 
         class_table <- table(ml_data$label)
