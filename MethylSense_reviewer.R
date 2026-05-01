@@ -1015,6 +1015,10 @@ opts <- list(
     type = "character", default = "model_evaluation",
     help = "Output directory (absolute path or subdirectory name) [default: model_evaluation]"
   ),
+  make_option(c("--output_subdir"),
+    type = "character", default = NULL,
+    help = "Deprecated: Use --output_dir instead"
+  ),
   make_option(c("-p", "--n_cores"),
     type = "integer", default = 4,
     help = "CPU cores [default: 4]"
@@ -1135,6 +1139,12 @@ opts <- list(
 
 parser <- OptionParser(option_list = opts)
 opt <- parse_args(parser)
+
+# Handle deprecated --output_subdir flag for backwards compatibility
+if (!is.null(opt$output_subdir)) {
+  opt$output_dir <- opt$output_subdir
+}
+
 log_info("Command line arguments parsed successfully", "STEP1")
 
 # Validate required arguments
