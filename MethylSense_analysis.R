@@ -5,7 +5,7 @@
 # ================================================================================
 #
 # Script Name: MethylSense_analysis.R
-# Version: 5.7.1 (Public Release)
+# Version: 5.7.2 (Public Release)
 # Date: 2026-05-01
 # GitHub: https://github.com/markusdrag/MethylSense
 # Authors: Markus Hodal Drag, Christina Hvilsom, Louise Ladefoged Poulsen,
@@ -208,7 +208,7 @@
 # ================================================================================
 
 # Script version for logging
-SCRIPT_VERSION <- "5.7.1"
+SCRIPT_VERSION <- "5.7.2"
 SCRIPT_DATE <- "2026-05-01"
 
 cat("\n")
@@ -7042,10 +7042,11 @@ plot_methylation_heatmap <- function(methylation_matrix, treatment_groups, dmrs,
                 color = colorRampPalette(c("#4575b4", "white", "#d73027"))(100),
                 scale = "row",
                 show_rownames = TRUE,
-                show_colnames = FALSE,
+                show_colnames = TRUE,
                 fontsize = 10,
                 fontsize_row = 8,
                 fontsize_col = 8,
+                angle_col = "45",
                 main = paste("Methylation Heatmap -", region_label, "\n", n_markers, "Top DMRs"),
                 filename = plot_file,
                 width = plot_width,
@@ -7067,10 +7068,11 @@ plot_methylation_heatmap <- function(methylation_matrix, treatment_groups, dmrs,
                 color = colorRampPalette(c("#4575b4", "white", "#d73027"))(100),
                 scale = "row",
                 show_rownames = TRUE,
-                show_colnames = FALSE,
+                show_colnames = TRUE,
                 fontsize = 10,
                 fontsize_row = 8,
                 fontsize_col = 8,
+                angle_col = "45",
                 main = paste("Methylation Heatmap -", region_label, "\n", n_markers, "Top DMRs")
               ))
               dev.off()
@@ -7090,10 +7092,11 @@ plot_methylation_heatmap <- function(methylation_matrix, treatment_groups, dmrs,
                 color = colorRampPalette(c("#4575b4", "white", "#d73027"))(100),
                 scale = "row",
                 show_rownames = TRUE,
-                show_colnames = FALSE,
+                show_colnames = TRUE,
                 fontsize = 10,
                 fontsize_row = 8,
                 fontsize_col = 8,
+                angle_col = "45",
                 main = paste("Methylation Heatmap -", region_label, "\n", n_markers, "Top DMRs")
               ))
               dev.off()
