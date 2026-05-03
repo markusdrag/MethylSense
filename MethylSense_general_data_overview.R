@@ -570,6 +570,22 @@ cat("===========================================================================
 
 coverage_stats_list <- list()
 
+# Guard helpers: quantile() returns a NAMED scalar (e.g. "25%") which causes
+# `data.frame()` to choke with "row names contain missing values" when the
+# input vector is empty (e.g. zero significant DMRs at a given region size).
+safe_quantile <- function(x, probs) {
+  if (length(x) == 0 || all(is.na(x))) {
+    return(NA_real_)
+  }
+  as.numeric(quantile(x, probs, na.rm = TRUE))
+}
+safe_stat <- function(x, fn) {
+  if (length(x) == 0 || all(is.na(x))) {
+    return(NA_real_)
+  }
+  as.numeric(fn(x, na.rm = TRUE))
+}
+
 for (region_size in names(all_meth_objects)) {
   cat(sprintf("Analyzing coverage for %s bp regions...\n", region_size))
 
@@ -591,27 +607,35 @@ for (region_size in names(all_meth_objects)) {
   coverage_dmr <- mean_coverage[is_dmr]
   coverage_non_dmr <- mean_coverage[!is_dmr]
 
+  if (length(coverage_dmr) == 0) {
+    cat(sprintf(
+      "  [INFO] No significant DMRs at %s bp - DMR coverage stats will be NA\n",
+      region_size
+    ))
+  }
+
   coverage_stats_list[[region_size]] <- data.frame(
-    Region_Size_bp = as.numeric(region_size),
-    Category = c("DMR", "Non-DMR"),
-    Median_Coverage = c(median(coverage_dmr, na.rm = TRUE), median(coverage_non_dmr, na.rm = TRUE)),
-    Q1_Coverage = c(quantile(coverage_dmr, 0.25, na.rm = TRUE), quantile(coverage_non_dmr, 0.25, na.rm = TRUE)),
-    Q3_Coverage = c(quantile(coverage_dmr, 0.75, na.rm = TRUE), quantile(coverage_non_dmr, 0.75, na.rm = TRUE)),
-    Mean_Coverage = c(mean(coverage_dmr, na.rm = TRUE), mean(coverage_non_dmr, na.rm = TRUE)),
-    SD_Coverage = c(sd(coverage_dmr, na.rm = TRUE), sd(coverage_non_dmr, na.rm = TRUE))
+    Region_Size_bp  = as.numeric(region_size),
+    Category        = c("DMR", "Non-DMR"),
+    Median_Coverage = c(safe_stat(coverage_dmr, median),     safe_stat(coverage_non_dmr, median)),
+    Q1_Coverage     = c(safe_quantile(coverage_dmr, 0.25),   safe_quantile(coverage_non_dmr, 0.25)),
+    Q3_Coverage     = c(safe_quantile(coverage_dmr, 0.75),   safe_quantile(coverage_non_dmr, 0.75)),
+    Mean_Coverage   = c(safe_stat(coverage_dmr, mean),       safe_stat(coverage_non_dmr, mean)),
+    SD_Coverage     = c(safe_stat(coverage_dmr, sd),         safe_stat(coverage_non_dmr, sd)),
+    stringsAsFactors = FALSE
   )
 
   cat(sprintf(
     "  DMR median coverage: %.1f (IQR: %.1f-%.1f)\n",
-    median(coverage_dmr, na.rm = TRUE),
-    quantile(coverage_dmr, 0.25, na.rm = TRUE),
-    quantile(coverage_dmr, 0.75, na.rm = TRUE)
+    safe_stat(coverage_dmr, median),
+    safe_quantile(coverage_dmr, 0.25),
+    safe_quantile(coverage_dmr, 0.75)
   ))
   cat(sprintf(
     "  Non-DMR median coverage: %.1f (IQR: %.1f-%.1f)\n\n",
-    median(coverage_non_dmr, na.rm = TRUE),
-    quantile(coverage_non_dmr, 0.25, na.rm = TRUE),
-    quantile(coverage_non_dmr, 0.75, na.rm = TRUE)
+    safe_stat(coverage_non_dmr, median),
+    safe_quantile(coverage_non_dmr, 0.25),
+    safe_quantile(coverage_non_dmr, 0.75)
   ))
 }
 
@@ -1497,11 +1521,26 @@ for (region_size in names(all_meth_objects)) {
         meth_vals <- (meth_data[sig_dmr_indices, numCs_col] /
           (meth_data[sig_dmr_indices, numCs_col] + meth_data[sig_dmr_indices, numTs_col])) * 100
 
+        # Look up infection status by Sample_ID rather than positional index, since
+        # methylKit reorders/drops samples during unite() so meth_obj@sample.ids
+        # order does NOT necessarily match sample_metadata row order.
+        sid <- meth_obj@sample.ids[i]
+        md_row <- match(
+          as.character(sid),
+          as.character(sample_metadata[[opt$sample_id_col]])
+        )
+        inf_status <- if (!is.na(md_row)) {
+          sample_metadata[[opt$infection_col]][md_row]
+        } else {
+          NA
+        }
+
         temp_list[[i]] <- data.frame(
-          Sample_ID = meth_obj@sample.ids[i],
-          Infection_Status = sample_metadata[[opt$infection_col]][i],
+          Sample_ID = sid,
+          Infection_Status = inf_status,
           Mean_Methylation = meth_vals, # Individual DMR values for the ridge distribution
-          Region_Size_Label = sprintf("%d KB", as.numeric(region_size) / 1000)
+          Region_Size_Label = sprintf("%d KB", as.numeric(region_size) / 1000),
+          stringsAsFactors = FALSE
         )
       }
     }
