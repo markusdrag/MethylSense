@@ -1573,20 +1573,73 @@ if (length(all_infection_data) > 0) {
   # Properly order region sizes
   combined_infection_data$Region_Size_Label <- order_region_sizes(combined_infection_data$Region_Size_Label)
 
-  # Order infection status (bottom to top: Control, Suspected, Infected)
-  # For ridge plots, factor levels are displayed bottom-to-top
-  infection_levels <- c("Infected", "Suspected", "Control") # Reversed for display
-  infection_levels <- infection_levels[infection_levels %in% unique(combined_infection_data$Infection_Status)]
-  combined_infection_data$Infection_Status <- factor(combined_infection_data$Infection_Status,
+  # Drop rows with NA/blank Infection_Status before plotting (these are samples
+  # whose ID was not in the sample sheet, OR sheet rows where the
+  # Infection_Status cell was empty - either way, they cannot be grouped).
+  n_before <- nrow(combined_infection_data)
+  combined_infection_data <- combined_infection_data[
+    !is.na(combined_infection_data$Infection_Status) &
+      trimws(as.character(combined_infection_data$Infection_Status)) != "",
+  ]
+  n_dropped <- n_before - nrow(combined_infection_data)
+  if (n_dropped > 0) {
+    cat(sprintf(
+      "  [WARN] Dropped %d row(s) with missing/blank %s before plotting ridge\n",
+      n_dropped, opt$infection_col
+    ))
+  }
+
+  # Order infection status by classifying actual values via regex (same logic
+  # as the upstream `infection_colors` block at line ~840). This avoids
+  # silently coercing non-canonical labels (e.g. "Aspergillosis", "Healthy",
+  # "Suspected_Asper") to NA the way a hardcoded
+  # c("Infected","Suspected","Control") factor would. For ridge plots,
+  # factor levels are displayed bottom-to-top: levels[1] -> bottom, levels[n] -> top.
+  unique_status <- sort(unique(as.character(combined_infection_data$Infection_Status)))
+  status_bucket <- vapply(unique_status, function(s) {
+    if (grepl("Control|Healthy|Negative", s, ignore.case = TRUE)) {
+      "1_control"
+    } else if (grepl("Suspect", s, ignore.case = TRUE)) {
+      "2_suspected"
+    } else if (grepl("Infect|Asper|Positive", s, ignore.case = TRUE)) {
+      "4_infected"
+    } else {
+      "3_other"
+    }
+  }, character(1))
+  # Sort: Control bottom -> Suspected -> Other -> Infected top.
+  # Then reverse so that levels[1] (top of factor) becomes "Infected" — keeping
+  # the prior visual intent where Infected sits at the top of the ridge stack.
+  infection_levels <- unique_status[order(status_bucket, unique_status)]
+  infection_levels <- rev(infection_levels)
+
+  cat(sprintf(
+    "  Ridge plot Infection_Status levels (top -> bottom): %s\n",
+    paste(infection_levels, collapse = " -> ")
+  ))
+
+  combined_infection_data$Infection_Status <- factor(
+    combined_infection_data$Infection_Status,
     levels = infection_levels
   )
 
-  # Get infection colors from earlier definition
-  infection_fill_colors <- infection_colors[levels(combined_infection_data$Infection_Status)]
+  # Build fill colors from the upstream `infection_colors` map (regex-based,
+  # built from sample-sheet values); fall back to METHYLSENSE_COLORS$Neutral
+  # for any level not in the upstream map.
+  infection_fill_colors <- vapply(infection_levels, function(s) {
+    if (s %in% names(infection_colors) && !is.na(infection_colors[s])) {
+      unname(infection_colors[s])
+    } else {
+      METHYLSENSE_COLORS$Neutral
+    }
+  }, character(1))
+  names(infection_fill_colors) <- infection_levels
 
   # Create faceted ridge plot
+  # Note: `size` was renamed to `linewidth` in ggplot2 3.4.0 / ggridges; using
+  # `linewidth` silences the deprecation warning.
   p7 <- ggplot(combined_infection_data, aes(x = Mean_Methylation, y = Infection_Status, fill = Infection_Status)) +
-    geom_density_ridges(alpha = 0.7, scale = 1.2, rel_min_height = 0.01, size = 1) +
+    geom_density_ridges(alpha = 0.7, scale = 1.2, rel_min_height = 0.01, linewidth = 1) +
     scale_fill_manual(values = infection_fill_colors) +
     facet_wrap(~Region_Size_Label, scales = "free_x", ncol = 3) +
     labs(
