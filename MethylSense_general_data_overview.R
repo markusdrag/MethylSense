@@ -890,59 +890,60 @@ for (region_size in names(all_meth_objects)) {
   rownames(heatmap_matrix) <- paste0("DMR_", top_dmr_indices)
   colnames(heatmap_matrix) <- paste0("Sample_", seq_len(ncol(heatmap_matrix)))
 
-  # Prepare annotation
-  sample_annot <- as.data.frame(sample_metadata[, c(opt$sample_id_col, opt$infection_col, opt$study_col)])
-  colnames(sample_annot) <- c("Sample_ID", "Infection_Status", "Study")
+  # Build annotation by looking up each methylKit sample.id in the sample sheet
+  # (same root cause as the ridge-plot bug: methylKit can drop/reorder samples
+  # during unite(), so positional alignment with the sample sheet's row order is
+  # unsafe; row counts don't have to match either, since unite() may have
+  # filtered samples out).
+  sample_ids <- as.character(meth_obj@sample.ids)
+  md_idx <- match(sample_ids, as.character(sample_metadata[[opt$sample_id_col]]))
+  missing_ids <- sample_ids[is.na(md_idx)]
+  if (length(missing_ids) > 0) {
+    cat(sprintf(
+      "  [WARN] %d sample(s) in methylation data not found in sample sheet for %s bp; annotation will show NA: %s\n",
+      length(missing_ids), region_size, paste(missing_ids, collapse = ", ")
+    ))
+  }
+  sample_annot <- data.frame(
+    Infection_Status = as.character(sample_metadata[[opt$infection_col]][md_idx]),
+    Study            = as.character(sample_metadata[[opt$study_col]][md_idx]),
+    row.names        = colnames(heatmap_matrix),
+    stringsAsFactors = FALSE
+  )
 
-  # Convert to data frame and ensure character columns
-  sample_annot$Infection_Status <- as.character(sample_annot$Infection_Status)
-  sample_annot$Study <- as.character(sample_annot$Study)
+  # Create heatmap in all requested formats
+  region_label <- sprintf("%d KB", as.numeric(region_size) / 1000)
 
-  # Match sample order
-  if (nrow(sample_annot) == ncol(heatmap_matrix)) {
-    sample_annot <- data.frame(
-      Infection_Status = sample_annot$Infection_Status,
-      Study = sample_annot$Study,
-      row.names = colnames(heatmap_matrix),
-      stringsAsFactors = FALSE
+  for (format in plot_formats) {
+    filepath <- file.path(figures_dir, sprintf(
+      "6_dmr_heatmap_top%d_%s.%s",
+      opt$heatmap_top_n, region_size, format
+    ))
+
+    if (format == "pdf") {
+      pdf(filepath, width = opt$plot_width, height = opt$plot_height)
+    } else if (format == "png") {
+      png(filepath, width = opt$plot_width * opt$plot_dpi, height = opt$plot_height * opt$plot_dpi, res = opt$plot_dpi)
+    } else if (format == "jpg" || format == "jpeg") {
+      jpeg(filepath, width = opt$plot_width * opt$plot_dpi, height = opt$plot_height * opt$plot_dpi, res = opt$plot_dpi)
+    } else if (format == "svg") {
+      svg(filepath, width = opt$plot_width, height = opt$plot_height)
+    }
+
+    pheatmap(heatmap_matrix,
+      color = colorRampPalette(c("blue", "white", "red"))(100),
+      breaks = seq(0, 100, length.out = 101),
+      cluster_rows = TRUE,
+      cluster_cols = TRUE,
+      show_colnames = FALSE,
+      annotation_col = sample_annot,
+      annotation_colors = annotation_colors,
+      main = sprintf("Top %d DMRs methylation heatmap (%s regions)", opt$heatmap_top_n, region_label),
+      fontsize = 10
     )
 
-    # Create heatmap in all requested formats
-    region_label <- sprintf("%d KB", as.numeric(region_size) / 1000)
-
-    for (format in plot_formats) {
-      filepath <- file.path(figures_dir, sprintf(
-        "6_dmr_heatmap_top%d_%s.%s",
-        opt$heatmap_top_n, region_size, format
-      ))
-
-      if (format == "pdf") {
-        pdf(filepath, width = opt$plot_width, height = opt$plot_height)
-      } else if (format == "png") {
-        png(filepath, width = opt$plot_width * opt$plot_dpi, height = opt$plot_height * opt$plot_dpi, res = opt$plot_dpi)
-      } else if (format == "jpg" || format == "jpeg") {
-        jpeg(filepath, width = opt$plot_width * opt$plot_dpi, height = opt$plot_height * opt$plot_dpi, res = opt$plot_dpi)
-      } else if (format == "svg") {
-        svg(filepath, width = opt$plot_width, height = opt$plot_height)
-      }
-
-      pheatmap(heatmap_matrix,
-        color = colorRampPalette(c("blue", "white", "red"))(100),
-        breaks = seq(0, 100, length.out = 101),
-        cluster_rows = TRUE,
-        cluster_cols = TRUE,
-        show_colnames = FALSE,
-        annotation_col = sample_annot,
-        annotation_colors = annotation_colors,
-        main = sprintf("Top %d DMRs methylation heatmap (%s regions)", opt$heatmap_top_n, region_label),
-        fontsize = 10
-      )
-
-      dev.off()
-      cat(sprintf("[OK] Saved: %s\n", filepath))
-    }
-  } else {
-    cat(sprintf("[WARNING] Sample metadata row count doesn't match methylation data for %s bp. Skipping...\n", region_size))
+    dev.off()
+    cat(sprintf("[OK] Saved: %s\n", filepath))
   }
 }
 
@@ -1024,21 +1025,28 @@ if ("1000" %in% names(all_dmr_data)) {
 }
 
 # Add coverage summary
+# NOTE: Median_Coverage may legitimately contain NA when no significant DMRs
+# exist at a region size (see safe_stat / safe_quantile helpers above), so use
+# the same NA-tolerant helpers here to avoid `quantile()` errors on all-NA input.
 if (nrow(coverage_stats_df) > 0) {
   dmr_coverage <- coverage_stats_df[coverage_stats_df$Category == "DMR", ]
   non_dmr_coverage <- coverage_stats_df[coverage_stats_df$Category == "Non-DMR", ]
 
   # DMR coverage statistics
-  median_cov_dmr <- median(dmr_coverage$Median_Coverage)
-  mean_cov_dmr <- mean(dmr_coverage$Median_Coverage)
-  q1_cov_dmr <- quantile(dmr_coverage$Median_Coverage, 0.25)
-  q3_cov_dmr <- quantile(dmr_coverage$Median_Coverage, 0.75)
+  median_cov_dmr <- safe_stat(dmr_coverage$Median_Coverage, median)
+  mean_cov_dmr   <- safe_stat(dmr_coverage$Median_Coverage, mean)
+  q1_cov_dmr     <- safe_quantile(dmr_coverage$Median_Coverage, 0.25)
+  q3_cov_dmr     <- safe_quantile(dmr_coverage$Median_Coverage, 0.75)
+  min_cov_dmr    <- safe_stat(dmr_coverage$Median_Coverage, min)
+  max_cov_dmr    <- safe_stat(dmr_coverage$Median_Coverage, max)
 
   # Non-DMR coverage statistics
-  median_cov_non <- median(non_dmr_coverage$Median_Coverage)
-  mean_cov_non <- mean(non_dmr_coverage$Median_Coverage)
-  q1_cov_non <- quantile(non_dmr_coverage$Median_Coverage, 0.25)
-  q3_cov_non <- quantile(non_dmr_coverage$Median_Coverage, 0.75)
+  median_cov_non <- safe_stat(non_dmr_coverage$Median_Coverage, median)
+  mean_cov_non   <- safe_stat(non_dmr_coverage$Median_Coverage, mean)
+  q1_cov_non     <- safe_quantile(non_dmr_coverage$Median_Coverage, 0.25)
+  q3_cov_non     <- safe_quantile(non_dmr_coverage$Median_Coverage, 0.75)
+  min_cov_non    <- safe_stat(non_dmr_coverage$Median_Coverage, min)
+  max_cov_non    <- safe_stat(non_dmr_coverage$Median_Coverage, max)
 
   summary_text <- c(
     summary_text,
@@ -1053,8 +1061,7 @@ if (nrow(coverage_stats_df) > 0) {
     ),
     sprintf(
       "- Coverage range across region sizes: %.1f-%.1f× (DMR), %.1f-%.1f× (non-DMR)",
-      min(dmr_coverage$Median_Coverage), max(dmr_coverage$Median_Coverage),
-      min(non_dmr_coverage$Median_Coverage), max(non_dmr_coverage$Median_Coverage)
+      min_cov_dmr, max_cov_dmr, min_cov_non, max_cov_non
     ),
     ""
   )
@@ -1251,15 +1258,23 @@ if (nrow(coverage_stats_df) > 0) {
   dmr_coverage <- coverage_stats_df[coverage_stats_df$Category == "DMR", ]
   non_dmr_coverage <- coverage_stats_df[coverage_stats_df$Category == "Non-DMR", ]
 
-  median_cov_dmr <- median(dmr_coverage$Median_Coverage)
-  mean_cov_dmr <- mean(dmr_coverage$Median_Coverage)
-  q1_cov_dmr <- quantile(dmr_coverage$Median_Coverage, 0.25)
-  q3_cov_dmr <- quantile(dmr_coverage$Median_Coverage, 0.75)
+  # NA-tolerant: Median_Coverage may legitimately contain NA when no significant
+  # DMRs exist at a region size.
+  median_cov_dmr <- safe_stat(dmr_coverage$Median_Coverage, median)
+  mean_cov_dmr   <- safe_stat(dmr_coverage$Median_Coverage, mean)
+  sd_cov_dmr     <- safe_stat(dmr_coverage$Median_Coverage, sd)
+  q1_cov_dmr     <- safe_quantile(dmr_coverage$Median_Coverage, 0.25)
+  q3_cov_dmr     <- safe_quantile(dmr_coverage$Median_Coverage, 0.75)
+  min_cov_dmr    <- safe_stat(dmr_coverage$Median_Coverage, min)
+  max_cov_dmr    <- safe_stat(dmr_coverage$Median_Coverage, max)
 
-  median_cov_non <- median(non_dmr_coverage$Median_Coverage)
-  mean_cov_non <- mean(non_dmr_coverage$Median_Coverage)
-  q1_cov_non <- quantile(non_dmr_coverage$Median_Coverage, 0.25)
-  q3_cov_non <- quantile(non_dmr_coverage$Median_Coverage, 0.75)
+  median_cov_non <- safe_stat(non_dmr_coverage$Median_Coverage, median)
+  mean_cov_non   <- safe_stat(non_dmr_coverage$Median_Coverage, mean)
+  sd_cov_non     <- safe_stat(non_dmr_coverage$Median_Coverage, sd)
+  q1_cov_non     <- safe_quantile(non_dmr_coverage$Median_Coverage, 0.25)
+  q3_cov_non     <- safe_quantile(non_dmr_coverage$Median_Coverage, 0.75)
+  min_cov_non    <- safe_stat(non_dmr_coverage$Median_Coverage, min)
+  max_cov_non    <- safe_stat(non_dmr_coverage$Median_Coverage, max)
 
   markdown_lines <- c(
     markdown_lines,
@@ -1267,13 +1282,13 @@ if (nrow(coverage_stats_df) > 0) {
     "",
     "**DMR Coverage:**",
     sprintf("- Median: **%.1f×** (IQR: %.1f–%.1f×)", median_cov_dmr, q1_cov_dmr, q3_cov_dmr),
-    sprintf("- Mean: **%.1f×** (SD: %.1f×)", mean_cov_dmr, sd(dmr_coverage$Median_Coverage)),
-    sprintf("- Range: %.1f–%.1f× across region sizes", min(dmr_coverage$Median_Coverage), max(dmr_coverage$Median_Coverage)),
+    sprintf("- Mean: **%.1f×** (SD: %.1f×)", mean_cov_dmr, sd_cov_dmr),
+    sprintf("- Range: %.1f–%.1f× across region sizes", min_cov_dmr, max_cov_dmr),
     "",
     "**Non-DMR Coverage:**",
     sprintf("- Median: **%.1f×** (IQR: %.1f–%.1f×)", median_cov_non, q1_cov_non, q3_cov_non),
-    sprintf("- Mean: **%.1f×** (SD: %.1f×)", mean_cov_non, sd(non_dmr_coverage$Median_Coverage)),
-    sprintf("- Range: %.1f–%.1f× across region sizes", min(non_dmr_coverage$Median_Coverage), max(non_dmr_coverage$Median_Coverage)),
+    sprintf("- Mean: **%.1f×** (SD: %.1f×)", mean_cov_non, sd_cov_non),
+    sprintf("- Range: %.1f–%.1f× across region sizes", min_cov_non, max_cov_non),
     ""
   )
 }
