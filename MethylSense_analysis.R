@@ -3901,6 +3901,8 @@ perform_cross_validation <- function(ml_data_subset, model_name, model_specs,
     auc = numeric(),
     mean_sensitivity = numeric(),
     mean_specificity = numeric(),
+    pos_class_sensitivity = numeric(),
+    pos_class_specificity = numeric(),
     mean_f1 = numeric(),
     train_samples = integer(),
     test_samples = integer(),
@@ -3993,6 +3995,7 @@ perform_cross_validation <- function(ml_data_subset, model_name, model_specs,
               sensitivity <- numeric(n_classes)
               specificity <- numeric(n_classes)
               f1_score <- numeric(n_classes)
+              names(sensitivity) <- names(specificity) <- names(f1_score) <- classes
 
               for (i in seq_along(classes)) {
                 class_name <- classes[i]
@@ -4010,6 +4013,14 @@ perform_cross_validation <- function(ml_data_subset, model_name, model_specs,
                 } else {
                   f1_score[i] <- 0
                 }
+              }
+
+              # Per-fold positive-class metrics (NA when --positive_class not set or not present)
+              pos_sens_cv <- NA_real_
+              pos_spec_cv <- NA_real_
+              if (!is.null(opt$positive_class) && opt$positive_class %in% classes) {
+                pos_sens_cv <- as.numeric(sensitivity[opt$positive_class])
+                pos_spec_cv <- as.numeric(specificity[opt$positive_class])
               }
 
               # Calculate AUC with proper positive class handling (MATCHES MAIN MODEL)
@@ -4087,6 +4098,8 @@ perform_cross_validation <- function(ml_data_subset, model_name, model_specs,
                 auc = ifelse(is.na(auc_cv) || !is.finite(auc_cv), 0, auc_cv),
                 mean_sensitivity = mean(sensitivity, na.rm = TRUE),
                 mean_specificity = mean(specificity, na.rm = TRUE),
+                pos_class_sensitivity = pos_sens_cv,
+                pos_class_specificity = pos_spec_cv,
                 mean_f1 = mean(f1_score, na.rm = TRUE),
                 train_samples = nrow(train_data_outer),
                 test_samples = nrow(test_data_outer),
@@ -4154,6 +4167,7 @@ perform_cross_validation <- function(ml_data_subset, model_name, model_specs,
                 sensitivity <- numeric(n_classes)
                 specificity <- numeric(n_classes)
                 f1_score <- numeric(n_classes)
+                names(sensitivity) <- names(specificity) <- names(f1_score) <- classes
 
                 for (i in seq_along(classes)) {
                   class_name <- classes[i]
@@ -4171,6 +4185,14 @@ perform_cross_validation <- function(ml_data_subset, model_name, model_specs,
                   } else {
                     f1_score[i] <- 0
                   }
+                }
+
+                # Per-fold positive-class metrics (NA when --positive_class not set or not present)
+                pos_sens_cv <- NA_real_
+                pos_spec_cv <- NA_real_
+                if (!is.null(opt$positive_class) && opt$positive_class %in% classes) {
+                  pos_sens_cv <- as.numeric(sensitivity[opt$positive_class])
+                  pos_spec_cv <- as.numeric(specificity[opt$positive_class])
                 }
 
                 auc_cv <- 0
@@ -4227,6 +4249,8 @@ perform_cross_validation <- function(ml_data_subset, model_name, model_specs,
                   auc = ifelse(is.na(auc_cv) || !is.finite(auc_cv), 0, auc_cv),
                   mean_sensitivity = mean(sensitivity, na.rm = TRUE),
                   mean_specificity = mean(specificity, na.rm = TRUE),
+                  pos_class_sensitivity = pos_sens_cv,
+                  pos_class_specificity = pos_spec_cv,
                   mean_f1 = mean(f1_score, na.rm = TRUE),
                   train_samples = nrow(train_data_outer),
                   test_samples = nrow(test_data_outer),
@@ -4278,6 +4302,26 @@ perform_cross_validation <- function(ml_data_subset, model_name, model_specs,
     sd_sensitivity = sd(cv_results$mean_sensitivity, na.rm = TRUE),
     mean_specificity = mean(cv_results$mean_specificity, na.rm = TRUE),
     sd_specificity = sd(cv_results$mean_specificity, na.rm = TRUE),
+    mean_pos_class_sensitivity = if (!is.null(cv_results$pos_class_sensitivity)) {
+      mean(cv_results$pos_class_sensitivity, na.rm = TRUE)
+    } else {
+      NA_real_
+    },
+    sd_pos_class_sensitivity = if (!is.null(cv_results$pos_class_sensitivity)) {
+      sd(cv_results$pos_class_sensitivity, na.rm = TRUE)
+    } else {
+      NA_real_
+    },
+    mean_pos_class_specificity = if (!is.null(cv_results$pos_class_specificity)) {
+      mean(cv_results$pos_class_specificity, na.rm = TRUE)
+    } else {
+      NA_real_
+    },
+    sd_pos_class_specificity = if (!is.null(cv_results$pos_class_specificity)) {
+      sd(cv_results$pos_class_specificity, na.rm = TRUE)
+    } else {
+      NA_real_
+    },
     mean_f1 = mean(cv_results$mean_f1, na.rm = TRUE),
     sd_f1 = sd(cv_results$mean_f1, na.rm = TRUE),
     stringsAsFactors = FALSE
@@ -4298,6 +4342,22 @@ perform_cross_validation <- function(ml_data_subset, model_name, model_specs,
   auc_ci <- calculate_confidence_intervals(cv_results$auc)
   sens_ci <- calculate_confidence_intervals(cv_results$mean_sensitivity)
   spec_ci <- calculate_confidence_intervals(cv_results$mean_specificity)
+
+  # Positive-class CIs (NA-safe: only compute if any non-NA values exist)
+  has_pos_sens <- !is.null(cv_results$pos_class_sensitivity) &&
+    any(!is.na(cv_results$pos_class_sensitivity))
+  has_pos_spec <- !is.null(cv_results$pos_class_specificity) &&
+    any(!is.na(cv_results$pos_class_specificity))
+  pos_sens_ci <- if (has_pos_sens) {
+    calculate_confidence_intervals(stats::na.omit(cv_results$pos_class_sensitivity))
+  } else {
+    list(mean = NA_real_, lower = NA_real_, upper = NA_real_, sd = NA_real_)
+  }
+  pos_spec_ci <- if (has_pos_spec) {
+    calculate_confidence_intervals(stats::na.omit(cv_results$pos_class_specificity))
+  } else {
+    list(mean = NA_real_, lower = NA_real_, upper = NA_real_, sd = NA_real_)
+  }
 
   # Create summary with CIs
   cv_summary <- data.frame(
@@ -4320,6 +4380,13 @@ perform_cross_validation <- function(ml_data_subset, model_name, model_specs,
     mean_specificity = spec_ci$mean,
     specificity_95ci_lower = spec_ci$lower,
     specificity_95ci_upper = spec_ci$upper,
+    mean_pos_class_sensitivity = pos_sens_ci$mean,
+    pos_class_sensitivity_95ci_lower = pos_sens_ci$lower,
+    pos_class_sensitivity_95ci_upper = pos_sens_ci$upper,
+    mean_pos_class_specificity = pos_spec_ci$mean,
+    pos_class_specificity_95ci_lower = pos_spec_ci$lower,
+    pos_class_specificity_95ci_upper = pos_spec_ci$upper,
+    positive_class = if (!is.null(opt$positive_class)) opt$positive_class else NA_character_,
     mean_f1 = mean(cv_results$mean_f1, na.rm = TRUE),
     stringsAsFactors = FALSE
   )
@@ -5907,16 +5974,34 @@ plot_standard_cv_results <- function(cv_result_regular,
       fold_data <- cv_result_regular$fold_results
       fold_data$fold <- 1:nrow(fold_data)
 
+      # Decide whether to show positive-class sens/spec or macro-averaged sens/spec.
+      # Pos-class is preferred when --positive_class is set and the per-fold values
+      # were populated; otherwise fall back to the macro (mean of one-vs-rest) values
+      # so behaviour is unchanged for runs without --positive_class.
+      use_pos_class <- !is.null(fold_data$pos_class_sensitivity) &&
+        any(!is.na(fold_data$pos_class_sensitivity))
+      sens_col   <- if (use_pos_class) "pos_class_sensitivity" else "mean_sensitivity"
+      spec_col   <- if (use_pos_class) "pos_class_specificity" else "mean_specificity"
+      sens_mean  <- if (use_pos_class) cv_result_regular$summary$mean_pos_class_sensitivity else cv_result_regular$summary$mean_sensitivity
+      spec_mean  <- if (use_pos_class) cv_result_regular$summary$mean_pos_class_specificity else cv_result_regular$summary$mean_specificity
+      sens_sd    <- if (use_pos_class) cv_result_regular$summary$sd_pos_class_sensitivity else cv_result_regular$summary$sd_sensitivity
+      spec_sd    <- if (use_pos_class) cv_result_regular$summary$sd_pos_class_specificity else cv_result_regular$summary$sd_specificity
+      pos_label  <- if (use_pos_class && !is.null(opt$positive_class)) {
+        paste0("Sensitivity/Specificity for positive class: ", opt$positive_class)
+      } else {
+        "Sensitivity/Specificity macro-averaged across classes"
+      }
+
       # Reshape for plotting
       fold_long <- reshape2::melt(fold_data,
         id.vars = "fold",
-        measure.vars = c("accuracy", "mean_sensitivity", "mean_specificity", "auc"),
+        measure.vars = c("accuracy", sens_col, spec_col, "auc"),
         variable.name = "metric",
         value.name = "value"
       )
 
       fold_long$metric <- factor(fold_long$metric,
-        levels = c("accuracy", "mean_sensitivity", "mean_specificity", "auc"),
+        levels = c("accuracy", sens_col, spec_col, "auc"),
         labels = c("Accuracy", "Sensitivity", "Specificity", "AUC")
       )
 
@@ -5928,14 +6013,14 @@ plot_standard_cv_results <- function(cv_result_regular,
         ),
         mean_val = c(
           cv_result_regular$summary$mean_accuracy,
-          cv_result_regular$summary$mean_sensitivity,
-          cv_result_regular$summary$mean_specificity,
+          sens_mean,
+          spec_mean,
           cv_result_regular$summary$mean_auc
         ),
         sd_val = c(
           cv_result_regular$summary$sd_accuracy,
-          cv_result_regular$summary$sd_sensitivity,
-          cv_result_regular$summary$sd_specificity,
+          sens_sd,
+          spec_sd,
           cv_result_regular$summary$sd_auc
         )
       )
@@ -5953,8 +6038,8 @@ plot_standard_cv_results <- function(cv_result_regular,
           metric = c("Accuracy", "Sensitivity", "Specificity", "AUC"),
           mean_val = c(
             cv_result_regular$summary$mean_accuracy,
-            cv_result_regular$summary$mean_sensitivity,
-            cv_result_regular$summary$mean_specificity,
+            sens_mean,
+            spec_mean,
             cv_result_regular$summary$mean_auc
           )
         ), aes(yintercept = mean_val, color = metric), linetype = "dashed", alpha = 0.5) +
@@ -5971,7 +6056,7 @@ plot_standard_cv_results <- function(cv_result_regular,
           title = paste("Standard CV performance by fold:", model_name),
           subtitle = paste(
             n_markers, "markers |", region_label,
-            "| Dashed lines show mean across folds"
+            "| Dashed lines show mean across folds\n", pos_label
           ),
           x = "CV fold",
           y = "Value",
@@ -5991,7 +6076,7 @@ plot_standard_cv_results <- function(cv_result_regular,
       save_plot_universal(p_fold_performance, fold_performance_file, width = 12, height = 8)
       plot_files$fold_performance <- fold_performance_file
 
-      log_msg("[PLOT] Standard CV fold performance plot created with Mean [95% CI] annotations")
+      log_msg(sprintf("[PLOT] Standard CV fold performance plot created (%s)", pos_label))
     },
     error = function(e) {
       log_error(paste("Standard CV fold plots failed:", e$message), "Plotting")
@@ -6254,16 +6339,34 @@ plot_nested_cv_results <- function(cv_result_regular, cv_result_nested,
       log_msg(paste("[DEBUG] Available columns in fold_results:", paste(colnames(fold_data), collapse = ", ")))
       log_msg(paste("[DEBUG] Looking for: accuracy, mean_sensitivity, mean_specificity, auc"))
 
+      # Decide whether to show positive-class sens/spec or macro-averaged sens/spec.
+      # Pos-class is preferred when --positive_class is set and the per-fold values
+      # were populated; otherwise fall back to the macro (mean of one-vs-rest) values
+      # so behaviour is unchanged for runs without --positive_class.
+      use_pos_class <- !is.null(fold_data$pos_class_sensitivity) &&
+        any(!is.na(fold_data$pos_class_sensitivity))
+      sens_col   <- if (use_pos_class) "pos_class_sensitivity" else "mean_sensitivity"
+      spec_col   <- if (use_pos_class) "pos_class_specificity" else "mean_specificity"
+      sens_mean  <- if (use_pos_class) cv_result_nested$summary$mean_pos_class_sensitivity else cv_result_nested$summary$mean_sensitivity
+      spec_mean  <- if (use_pos_class) cv_result_nested$summary$mean_pos_class_specificity else cv_result_nested$summary$mean_specificity
+      sens_sd    <- if (use_pos_class) cv_result_nested$summary$sd_pos_class_sensitivity else cv_result_nested$summary$sd_sensitivity
+      spec_sd    <- if (use_pos_class) cv_result_nested$summary$sd_pos_class_specificity else cv_result_nested$summary$sd_specificity
+      pos_label  <- if (use_pos_class && !is.null(opt$positive_class)) {
+        paste0("Sensitivity/Specificity for positive class: ", opt$positive_class)
+      } else {
+        "Sensitivity/Specificity macro-averaged across classes"
+      }
+
       # Reshape for plotting - CRITICAL: use correct column names
       fold_long <- reshape2::melt(fold_data,
         id.vars = "fold",
-        measure.vars = c("accuracy", "mean_sensitivity", "mean_specificity", "auc"),
+        measure.vars = c("accuracy", sens_col, spec_col, "auc"),
         variable.name = "metric",
         value.name = "value"
       )
 
       fold_long$metric <- factor(fold_long$metric,
-        levels = c("accuracy", "mean_sensitivity", "mean_specificity", "auc"),
+        levels = c("accuracy", sens_col, spec_col, "auc"),
         labels = c("Accuracy", "Sensitivity", "Specificity", "AUC")
       )
 
@@ -6276,14 +6379,14 @@ plot_nested_cv_results <- function(cv_result_regular, cv_result_nested,
         ),
         mean_val = c(
           cv_result_nested$summary$mean_accuracy,
-          cv_result_nested$summary$mean_sensitivity,
-          cv_result_nested$summary$mean_specificity,
+          sens_mean,
+          spec_mean,
           cv_result_nested$summary$mean_auc
         ),
         sd_val = c(
           cv_result_nested$summary$sd_accuracy,
-          cv_result_nested$summary$sd_sensitivity,
-          cv_result_nested$summary$sd_specificity,
+          sens_sd,
+          spec_sd,
           cv_result_nested$summary$sd_auc
         )
       )
@@ -6301,8 +6404,8 @@ plot_nested_cv_results <- function(cv_result_regular, cv_result_nested,
           metric = c("Accuracy", "Sensitivity", "Specificity", "AUC"),
           mean_val = c(
             cv_result_nested$summary$mean_accuracy,
-            cv_result_nested$summary$mean_sensitivity,
-            cv_result_nested$summary$mean_specificity,
+            sens_mean,
+            spec_mean,
             cv_result_nested$summary$mean_auc
           )
         ), aes(yintercept = mean_val, color = metric), linetype = "dashed", alpha = 0.5) +
@@ -6319,7 +6422,7 @@ plot_nested_cv_results <- function(cv_result_regular, cv_result_nested,
           title = paste("Nested CV performance by outer fold:", model_name),
           subtitle = paste(
             n_markers, "markers |", region_label,
-            "| Dashed lines show mean across folds"
+            "| Dashed lines show mean across folds\n", pos_label
           ),
           x = "Outer fold",
           y = "Value",
@@ -6339,7 +6442,7 @@ plot_nested_cv_results <- function(cv_result_regular, cv_result_nested,
       save_plot_universal(p_fold_performance, fold_performance_file, width = 12, height = 8)
       plot_files$fold_performance <- fold_performance_file
 
-      log_msg("[PLOT] Fold performance plot created with Mean [95% CI] annotations")
+      log_msg(sprintf("[PLOT] Nested CV fold performance plot created (%s)", pos_label))
 
       # ===== PLOT 4: Metric Distributions (Raincloud Plot) =====
       p_raincloud <- ggplot(fold_long, aes(x = metric, y = value, fill = metric)) +
@@ -11309,6 +11412,11 @@ for (region_idx in seq_along(region_data)) {
                 }
               )
 
+              # Reset per-iteration positive-class held-out metrics so a tryCatch
+              # error below cannot leak stale values from a previous model/region.
+              pos_sens_main <- NA_real_
+              pos_spec_main <- NA_real_
+
               # THEN do metrics calculation in tryCatch
               tryCatch(
                 {
@@ -11339,6 +11447,14 @@ for (region_idx in seq_along(region_data)) {
                     } else {
                       f1_score[i] <- 0
                     }
+                  }
+
+                  # Held-out positive-class metrics (NA when --positive_class not set or absent)
+                  pos_sens_main <- NA_real_
+                  pos_spec_main <- NA_real_
+                  if (!is.null(opt$positive_class) && opt$positive_class %in% classes) {
+                    pos_sens_main <- as.numeric(sensitivity[opt$positive_class])
+                    pos_spec_main <- as.numeric(specificity[opt$positive_class])
                   }
 
                   # Calculate AUC with proper error handling and multi-class support
@@ -11727,6 +11843,9 @@ for (region_idx in seq_along(region_data)) {
                 pr_auc = ifelse(exists("pr_auc") && !is.na(pr_auc), pr_auc, 0),
                 mean_sensitivity = ifelse(length(sensitivity) > 0, mean(sensitivity, na.rm = TRUE), 0),
                 mean_specificity = ifelse(length(specificity) > 0, mean(specificity, na.rm = TRUE), 0),
+                pos_class_sensitivity = pos_sens_main,
+                pos_class_specificity = pos_spec_main,
+                positive_class = if (!is.null(opt$positive_class)) opt$positive_class else NA_character_,
                 mean_f1 = ifelse(length(f1_score) > 0, mean(f1_score, na.rm = TRUE), 0),
                 train_time_sec = result$model_time,
                 test_ratio = opt$test_ratio,
@@ -11737,6 +11856,8 @@ for (region_idx in seq_along(region_data)) {
                 cv_mean_accuracy = if (!is.null(cv_result_regular)) cv_result_regular$summary$mean_accuracy else NA,
                 cv_mean_sensitivity = if (!is.null(cv_result_regular)) cv_result_regular$summary$mean_sensitivity else NA,
                 cv_mean_specificity = if (!is.null(cv_result_regular)) cv_result_regular$summary$mean_specificity else NA,
+                cv_mean_pos_class_sensitivity = if (!is.null(cv_result_regular)) cv_result_regular$summary$mean_pos_class_sensitivity else NA,
+                cv_mean_pos_class_specificity = if (!is.null(cv_result_regular)) cv_result_regular$summary$mean_pos_class_specificity else NA,
                 cv_mean_auc = if (!is.null(cv_result_regular)) cv_result_regular$summary$mean_auc else NA,
                 cv_95ci_lower = if (!is.null(cv_result_regular)) cv_result_regular$summary$accuracy_95ci_lower else NA,
                 cv_95ci_upper = if (!is.null(cv_result_regular)) cv_result_regular$summary$accuracy_95ci_upper else NA,
@@ -11746,6 +11867,8 @@ for (region_idx in seq_along(region_data)) {
                 nested_cv_mean_accuracy = if (!is.null(cv_result_nested)) cv_result_nested$summary$mean_accuracy else NA,
                 nested_cv_mean_sensitivity = if (!is.null(cv_result_nested)) cv_result_nested$summary$mean_sensitivity else NA,
                 nested_cv_mean_specificity = if (!is.null(cv_result_nested)) cv_result_nested$summary$mean_specificity else NA,
+                nested_cv_mean_pos_class_sensitivity = if (!is.null(cv_result_nested)) cv_result_nested$summary$mean_pos_class_sensitivity else NA,
+                nested_cv_mean_pos_class_specificity = if (!is.null(cv_result_nested)) cv_result_nested$summary$mean_pos_class_specificity else NA,
                 nested_cv_mean_auc = if (!is.null(cv_result_nested)) cv_result_nested$summary$mean_auc else NA,
                 nested_cv_95ci_lower = if (!is.null(cv_result_nested)) cv_result_nested$summary$accuracy_95ci_lower else NA,
                 nested_cv_95ci_upper = if (!is.null(cv_result_nested)) cv_result_nested$summary$accuracy_95ci_upper else NA,
