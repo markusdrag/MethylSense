@@ -5974,38 +5974,18 @@ plot_standard_cv_results <- function(cv_result_regular,
       fold_data <- cv_result_regular$fold_results
       fold_data$fold <- 1:nrow(fold_data)
 
-      # Decide whether to show positive-class sens/spec or macro-averaged sens/spec.
-      # Pos-class is preferred when --positive_class is set and the per-fold values
-      # were populated; otherwise fall back to the macro (mean of one-vs-rest) values
-      # so behaviour is unchanged for runs without --positive_class.
-      use_pos_class <- !is.null(fold_data$pos_class_sensitivity) &&
-        any(!is.na(fold_data$pos_class_sensitivity))
-      sens_col   <- if (use_pos_class) "pos_class_sensitivity" else "mean_sensitivity"
-      spec_col   <- if (use_pos_class) "pos_class_specificity" else "mean_specificity"
-      sens_mean  <- if (use_pos_class) cv_result_regular$summary$mean_pos_class_sensitivity else cv_result_regular$summary$mean_sensitivity
-      spec_mean  <- if (use_pos_class) cv_result_regular$summary$mean_pos_class_specificity else cv_result_regular$summary$mean_specificity
-      sens_sd    <- if (use_pos_class) cv_result_regular$summary$sd_pos_class_sensitivity else cv_result_regular$summary$sd_sensitivity
-      spec_sd    <- if (use_pos_class) cv_result_regular$summary$sd_pos_class_specificity else cv_result_regular$summary$sd_specificity
-      pos_label  <- if (use_pos_class && !is.null(opt$positive_class)) {
-        paste0("Sensitivity/Specificity for positive class: ", opt$positive_class)
-      } else {
-        "Sensitivity/Specificity macro-averaged across classes"
-      }
-
-      # Reshape for plotting
       fold_long <- reshape2::melt(fold_data,
         id.vars = "fold",
-        measure.vars = c("accuracy", sens_col, spec_col, "auc"),
+        measure.vars = c("accuracy", "mean_sensitivity", "mean_specificity", "auc"),
         variable.name = "metric",
         value.name = "value"
       )
 
       fold_long$metric <- factor(fold_long$metric,
-        levels = c("accuracy", sens_col, spec_col, "auc"),
+        levels = c("accuracy", "mean_sensitivity", "mean_specificity", "auc"),
         labels = c("Accuracy", "Sensitivity", "Specificity", "AUC")
       )
 
-      # Calculate 95% CI for each metric for annotation
       n_folds <- nrow(fold_data)
       ci_data <- data.frame(
         metric = factor(c("Accuracy", "Sensitivity", "Specificity", "AUC"),
@@ -6013,14 +5993,14 @@ plot_standard_cv_results <- function(cv_result_regular,
         ),
         mean_val = c(
           cv_result_regular$summary$mean_accuracy,
-          sens_mean,
-          spec_mean,
+          cv_result_regular$summary$mean_sensitivity,
+          cv_result_regular$summary$mean_specificity,
           cv_result_regular$summary$mean_auc
         ),
         sd_val = c(
           cv_result_regular$summary$sd_accuracy,
-          sens_sd,
-          spec_sd,
+          cv_result_regular$summary$sd_sensitivity,
+          cv_result_regular$summary$sd_specificity,
           cv_result_regular$summary$sd_auc
         )
       )
@@ -6038,8 +6018,8 @@ plot_standard_cv_results <- function(cv_result_regular,
           metric = c("Accuracy", "Sensitivity", "Specificity", "AUC"),
           mean_val = c(
             cv_result_regular$summary$mean_accuracy,
-            sens_mean,
-            spec_mean,
+            cv_result_regular$summary$mean_sensitivity,
+            cv_result_regular$summary$mean_specificity,
             cv_result_regular$summary$mean_auc
           )
         ), aes(yintercept = mean_val, color = metric), linetype = "dashed", alpha = 0.5) +
@@ -6056,7 +6036,7 @@ plot_standard_cv_results <- function(cv_result_regular,
           title = paste("Standard CV performance by fold:", model_name),
           subtitle = paste(
             n_markers, "markers |", region_label,
-            "| Dashed lines show mean across folds\n", pos_label
+            "| Dashed lines show mean across folds"
           ),
           x = "CV fold",
           y = "Value",
@@ -6076,7 +6056,7 @@ plot_standard_cv_results <- function(cv_result_regular,
       save_plot_universal(p_fold_performance, fold_performance_file, width = 12, height = 8)
       plot_files$fold_performance <- fold_performance_file
 
-      log_msg(sprintf("[PLOT] Standard CV fold performance plot created (%s)", pos_label))
+      log_msg("[PLOT] Standard CV fold performance plot created")
     },
     error = function(e) {
       log_error(paste("Standard CV fold plots failed:", e$message), "Plotting")
@@ -6339,39 +6319,19 @@ plot_nested_cv_results <- function(cv_result_regular, cv_result_nested,
       log_msg(paste("[DEBUG] Available columns in fold_results:", paste(colnames(fold_data), collapse = ", ")))
       log_msg(paste("[DEBUG] Looking for: accuracy, mean_sensitivity, mean_specificity, auc"))
 
-      # Decide whether to show positive-class sens/spec or macro-averaged sens/spec.
-      # Pos-class is preferred when --positive_class is set and the per-fold values
-      # were populated; otherwise fall back to the macro (mean of one-vs-rest) values
-      # so behaviour is unchanged for runs without --positive_class.
-      use_pos_class <- !is.null(fold_data$pos_class_sensitivity) &&
-        any(!is.na(fold_data$pos_class_sensitivity))
-      sens_col   <- if (use_pos_class) "pos_class_sensitivity" else "mean_sensitivity"
-      spec_col   <- if (use_pos_class) "pos_class_specificity" else "mean_specificity"
-      sens_mean  <- if (use_pos_class) cv_result_nested$summary$mean_pos_class_sensitivity else cv_result_nested$summary$mean_sensitivity
-      spec_mean  <- if (use_pos_class) cv_result_nested$summary$mean_pos_class_specificity else cv_result_nested$summary$mean_specificity
-      sens_sd    <- if (use_pos_class) cv_result_nested$summary$sd_pos_class_sensitivity else cv_result_nested$summary$sd_sensitivity
-      spec_sd    <- if (use_pos_class) cv_result_nested$summary$sd_pos_class_specificity else cv_result_nested$summary$sd_specificity
-      pos_label  <- if (use_pos_class && !is.null(opt$positive_class)) {
-        paste0("Sensitivity/Specificity for positive class: ", opt$positive_class)
-      } else {
-        "Sensitivity/Specificity macro-averaged across classes"
-      }
-
-      # Reshape for plotting - CRITICAL: use correct column names
       fold_long <- reshape2::melt(fold_data,
         id.vars = "fold",
-        measure.vars = c("accuracy", sens_col, spec_col, "auc"),
+        measure.vars = c("accuracy", "mean_sensitivity", "mean_specificity", "auc"),
         variable.name = "metric",
         value.name = "value"
       )
 
       fold_long$metric <- factor(fold_long$metric,
-        levels = c("accuracy", sens_col, spec_col, "auc"),
+        levels = c("accuracy", "mean_sensitivity", "mean_specificity", "auc"),
         labels = c("Accuracy", "Sensitivity", "Specificity", "AUC")
       )
 
       # ===== PLOT 3: Fold-by-Fold Performance =====
-      # Calculate 95% CI for each metric for annotation
       n_folds <- nrow(fold_data)
       ci_data <- data.frame(
         metric = factor(c("Accuracy", "Sensitivity", "Specificity", "AUC"),
@@ -6379,14 +6339,14 @@ plot_nested_cv_results <- function(cv_result_regular, cv_result_nested,
         ),
         mean_val = c(
           cv_result_nested$summary$mean_accuracy,
-          sens_mean,
-          spec_mean,
+          cv_result_nested$summary$mean_sensitivity,
+          cv_result_nested$summary$mean_specificity,
           cv_result_nested$summary$mean_auc
         ),
         sd_val = c(
           cv_result_nested$summary$sd_accuracy,
-          sens_sd,
-          spec_sd,
+          cv_result_nested$summary$sd_sensitivity,
+          cv_result_nested$summary$sd_specificity,
           cv_result_nested$summary$sd_auc
         )
       )
@@ -6404,8 +6364,8 @@ plot_nested_cv_results <- function(cv_result_regular, cv_result_nested,
           metric = c("Accuracy", "Sensitivity", "Specificity", "AUC"),
           mean_val = c(
             cv_result_nested$summary$mean_accuracy,
-            sens_mean,
-            spec_mean,
+            cv_result_nested$summary$mean_sensitivity,
+            cv_result_nested$summary$mean_specificity,
             cv_result_nested$summary$mean_auc
           )
         ), aes(yintercept = mean_val, color = metric), linetype = "dashed", alpha = 0.5) +
@@ -6422,7 +6382,7 @@ plot_nested_cv_results <- function(cv_result_regular, cv_result_nested,
           title = paste("Nested CV performance by outer fold:", model_name),
           subtitle = paste(
             n_markers, "markers |", region_label,
-            "| Dashed lines show mean across folds\n", pos_label
+            "| Dashed lines show mean across folds"
           ),
           x = "Outer fold",
           y = "Value",
@@ -6442,7 +6402,7 @@ plot_nested_cv_results <- function(cv_result_regular, cv_result_nested,
       save_plot_universal(p_fold_performance, fold_performance_file, width = 12, height = 8)
       plot_files$fold_performance <- fold_performance_file
 
-      log_msg(sprintf("[PLOT] Nested CV fold performance plot created (%s)", pos_label))
+      log_msg("[PLOT] Nested CV fold performance plot created")
 
       # ===== PLOT 4: Metric Distributions (Raincloud Plot) =====
       p_raincloud <- ggplot(fold_long, aes(x = metric, y = value, fill = metric)) +
