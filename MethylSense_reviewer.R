@@ -3,10 +3,14 @@
 # ============================================================================
 # Comprehensive Model Validation and Technical Quality Assessment
 # ============================================================================
-# VERSION: 5.7.2
-# DATE: 2026-05-01
+# VERSION: 5.7.3
+# DATE: 2026-05-06
 # GitHub: https://github.com/markusdrag/MethylSense
 # CHANGELOG:
+#   v5.7.3  - BUGFIX: One-vs-rest binary confusion matrix now uses fixed factor levels
+#             so `table()` is always 2x2 (fixes subscript out of bounds when a class
+#             never appears in predicted or actual for that fold/run).
+#           - ROBUST: `calculate_binary_metrics` uses NA-safe ratios when a margin is zero.
 #   v5.7.1  - BUGFIX: Renamed --output_subdir to --output_dir for consistency
 #           - FIX: --output_dir now supports absolute paths (used as-is) and relative
 #                  paths (treated as subdirectory of model_dir)
@@ -671,8 +675,8 @@
 #   v6.3.2 - Fixed PCA/UMAP
 # ============================================================================
 
-SCRIPT_VERSION <- "5.7.2"
-SCRIPT_DATE <- "2026-05-01"
+SCRIPT_VERSION <- "5.7.3"
+SCRIPT_DATE <- "2026-05-06"
 
 # ================================================================================
 # METHYLSENSE GLOBAL THEME CONFIGURATION
@@ -1602,21 +1606,34 @@ calculate_pr_auc <- function(pr_curve) {
 
 # Calculate binary diagnostic metrics from confusion matrix
 calculate_binary_metrics <- function(conf_matrix) {
-  tp <- conf_matrix[2, 2]
-  tn <- conf_matrix[1, 1]
-  fp <- conf_matrix[1, 2]
-  fn <- conf_matrix[2, 1]
+  if (!inherits(conf_matrix, "table") || nrow(conf_matrix) != 2 || ncol(conf_matrix) != 2) {
+    stop(
+      "calculate_binary_metrics expects a 2x2 table (Actual x Predicted). ",
+      "Build the table with factor(..., levels = c(\"Other\", positive_class)) on both vectors."
+    )
+  }
 
-  sensitivity <- tp / (tp + fn)
-  specificity <- tn / (tn + fp)
-  ppv <- tp / (tp + fp)
-  npv <- tn / (tn + fn)
-  accuracy <- (tp + tn) / sum(conf_matrix)
-  f1 <- 2 * (ppv * sensitivity) / (ppv + sensitivity)
+  tp <- as.numeric(conf_matrix[2, 2])
+  tn <- as.numeric(conf_matrix[1, 1])
+  fp <- as.numeric(conf_matrix[1, 2])
+  fn <- as.numeric(conf_matrix[2, 1])
+
+  safe_ratio <- function(num, den) {
+    ifelse(!is.finite(den) || den == 0, NA_real_, num / den)
+  }
+
+  sensitivity <- safe_ratio(tp, tp + fn)
+  specificity <- safe_ratio(tn, tn + fp)
+  ppv <- safe_ratio(tp, tp + fp)
+  npv <- safe_ratio(tn, tn + fn)
+  accuracy <- safe_ratio(tp + tn, sum(conf_matrix))
+
+  f1_denom <- ppv + sensitivity
+  f1 <- ifelse(!is.finite(f1_denom) | f1_denom == 0, NA_real_, 2 * (ppv * sensitivity) / f1_denom)
 
   mcc_num <- (tp * tn) - (fp * fn)
   mcc_den <- sqrt((tp + fp) * (tp + fn) * (tn + fp) * (tn + fn))
-  mcc <- ifelse(mcc_den == 0, 0, mcc_num / mcc_den)
+  mcc <- ifelse(!is.finite(mcc_den) || mcc_den == 0, 0, mcc_num / mcc_den)
 
   return(list(
     sensitivity = sensitivity,
@@ -4278,8 +4295,13 @@ if (!file.exists(predictions_file)) {
             next
           }
 
-          # Binary confusion matrix
-          binary_conf <- table(Actual = binary_actual, Predicted = binary_predicted)
+          # Binary confusion matrix: force 2x2 so sparse one-vs-rest cells are not dropped
+          # (otherwise table() can be 1x2 / 2x1 / 1x1 and conf_matrix[2,2] crashes).
+          bin_levels <- c("Other", class)
+          binary_conf <- table(
+            Actual = factor(binary_actual, levels = bin_levels),
+            Predicted = factor(binary_predicted, levels = bin_levels)
+          )
 
           # Calculate binary metrics
           binary_metrics <- calculate_binary_metrics(binary_conf)

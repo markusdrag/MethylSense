@@ -7,7 +7,7 @@
 #          v3: Enhanced with robust chromosome normalization and type handling
 #
 # Author: Markus Hodal Drag
-# Version: 5.7.2
+# Version: 5.7.3
 # Release Date: 2026-05-01
 # GitHub: https://github.com/markusdrag/MethylSense
 #
@@ -20,8 +20,8 @@
 #   https://doi.org/10.1128/jcm.01054-25
 # ================================================================================
 
-SCRIPT_VERSION <- "5.7.2"
-SCRIPT_DATE <- "2026-05-01"
+SCRIPT_VERSION <- "5.7.3"
+SCRIPT_DATE <- "2026-05-06"
 
 suppressPackageStartupMessages({
   library(optparse)

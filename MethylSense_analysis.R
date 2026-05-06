@@ -5,7 +5,7 @@
 # ================================================================================
 #
 # Script Name: MethylSense_analysis.R
-# Version: 5.7.2 (Public Release)
+# Version: 5.7.3 (Public Release)
 # Date: 2026-05-01
 # GitHub: https://github.com/markusdrag/MethylSense
 # Authors: Markus Hodal Drag, Christina Hvilsom, Louise Ladefoged Poulsen,
@@ -208,8 +208,8 @@
 # ================================================================================
 
 # Script version for logging
-SCRIPT_VERSION <- "5.7.2"
-SCRIPT_DATE <- "2026-05-01"
+SCRIPT_VERSION <- "5.7.3"
+SCRIPT_DATE <- "2026-05-06"
 
 cat("\n")
 cat("================================================================================\n")

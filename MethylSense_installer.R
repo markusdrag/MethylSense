@@ -3,7 +3,7 @@
 # ================================================================================
 # MethylSense Complete Package Installer
 # ================================================================================
-# Version: 5.7.2
+# Version: 5.7.3
 # Date: 2026-05-01
 # Description: Installs all required R packages for the MethylSense workflow
 #              (load_data, analysis, predict, reviewer, general data overview)
