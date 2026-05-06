@@ -10,6 +10,9 @@
 #   v5.7.3  - BUGFIX: One-vs-rest binary confusion matrix now uses fixed factor levels
 #             so `table()` is always 2x2 (fixes subscript out of bounds when a class
 #             never appears in predicted or actual for that fold/run).
+#           - BUGFIX: Overall and stratified Cohen's kappa now use a full square
+#             confusion matrix (`factor(..., levels = classes)`) so expected-accuracy
+#             calculation never recycles mis-matched row/column margins (warning fix).
 #           - ROBUST: `calculate_binary_metrics` uses NA-safe ratios when a margin is zero.
 #   v5.7.1  - BUGFIX: Renamed --output_subdir to --output_dir for consistency
 #           - FIX: --output_dir now supports absolute paths (used as-is) and relative
@@ -4189,8 +4192,13 @@ if (!file.exists(predictions_file)) {
         # Overall accuracy
         overall_accuracy <- mean(predictions$actual == predictions$predicted)
 
-        # Cohen's Kappa
-        conf_matrix_overall <- table(Actual = predictions$actual, Predicted = predictions$predicted)
+        # Cohen's Kappa — use fixed factor levels so the table is always
+        # square (n_class x n_class). Otherwise a missing row/column class
+        # yields a non-square table, rowSums/colSums lengths differ, and
+        # (row_sums/n_total)*(col_sums/n_total) recycles with a warning.
+        fac_actual <- factor(as.character(predictions$actual), levels = classes)
+        fac_predicted <- factor(as.character(predictions$predicted), levels = classes)
+        conf_matrix_overall <- table(Actual = fac_actual, Predicted = fac_predicted)
         n_total <- sum(conf_matrix_overall)
         n_correct <- sum(diag(conf_matrix_overall))
 
@@ -4457,8 +4465,11 @@ if (!file.exists(predictions_file)) {
             # Overall accuracy for this dataset
             subset_accuracy <- mean(subset_data$actual == subset_data$predicted)
 
-            # Confusion matrix
-            subset_conf <- table(Actual = subset_data$actual, Predicted = subset_data$predicted)
+            # Confusion matrix (same full class set as overall so Kappa is well-defined)
+            subset_conf <- table(
+              Actual = factor(as.character(subset_data$actual), levels = classes),
+              Predicted = factor(as.character(subset_data$predicted), levels = classes)
+            )
 
             # Kappa
             n_subset <- sum(subset_conf)
