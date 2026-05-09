@@ -304,6 +304,8 @@ show_help <- function() {
   cat("  --treatment_mapping CODE=NAME,...\n")
   cat("                        Map numeric treatment codes to group names\n")
   cat("                        Example: --treatment_mapping 0=Control,1=Infected\n")
+  cat("                        Multiple codes can map to the same group (auto-collapse):\n")
+  cat("                        Example: --treatment_mapping 0=Healthy,1=Disease,2=Disease\n")
   cat("\n")
   cat("  --min_group_size N    Minimum samples per group [default: 4]\n")
   cat("  --allow_small_groups  Allow groups with fewer samples (risky)\n")
@@ -3587,7 +3589,26 @@ process_treatment_groups <- function(treatment_info, group_names = NULL, treatme
       }
     })
 
-    treatment_labels <- factor(mapped_treatment, levels = mapped_names_in_order)
+    # De-duplicate levels while preserving first-seen order
+    # This handles cases like 1=Aspergillosis,2=Aspergillosis (group collapsing)
+    unique_levels <- unique(mapped_names_in_order)
+
+    if (length(unique_levels) < length(mapped_names_in_order)) {
+      collapsed_codes <- list()
+      for (name in unique_levels) {
+        codes <- names(mapping_dict)[sapply(mapping_dict, function(x) x == name)]
+        if (length(codes) > 1) {
+          collapsed_codes[[name]] <- codes
+        }
+      }
+      log_msg("[COLLAPSE] Detected duplicate group names in treatment mapping - collapsing:")
+      for (name in names(collapsed_codes)) {
+        log_msg(paste("   Codes", paste(collapsed_codes[[name]], collapse = " + "), "->", name))
+      }
+      log_msg(paste("[COLLAPSE] Reduced from", length(mapped_names_in_order), "to", length(unique_levels), "unique groups"))
+    }
+
+    treatment_labels <- factor(mapped_treatment, levels = unique_levels)
   } else if (!is.null(group_names)) {
     # Use provided group names
     if (length(group_names) != length(unique_treatments)) {
@@ -8271,6 +8292,22 @@ treatment_processed <- process_treatment_groups(
 # Update treatment_info to use the processed labels
 treatment_info <- treatment_processed$labels
 group_names_final <- treatment_processed$group_names
+
+# If treatment mapping collapsed groups, update the methylKit object's
+# treatment vector so downstream methylKit operations see the correct groups
+if (length(unique(getTreatment(meth))) != length(levels(treatment_info))) {
+  log_msg("[COLLAPSE] Updating methylKit treatment vector to reflect collapsed groups")
+  new_treatment_codes <- as.integer(treatment_info) - 1L  # 0-indexed like methylKit expects
+  meth_new <- new("methylRawList", meth[1:length(meth)])
+  meth_new@treatment <- new_treatment_codes
+  meth <- meth_new
+  log_msg(paste("[COLLAPSE] New treatment codes:", paste(unique(sort(new_treatment_codes)), collapse = ", ")))
+  log_msg(paste("[COLLAPSE] Samples per collapsed group:"))
+  collapsed_table <- table(treatment_info)
+  for (i in seq_along(collapsed_table)) {
+    log_msg(paste("   ", names(collapsed_table)[i], ":", collapsed_table[i], "samples"))
+  }
+}
 
 # Show initial group distribution
 treatment_table <- table(treatment_info)
