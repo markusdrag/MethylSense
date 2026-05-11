@@ -4127,12 +4127,18 @@ perform_cross_validation <- function(ml_data_subset, model_name, model_specs,
                 stringsAsFactors = FALSE
               ))
 
-              all_predictions[[eval_counter]] <- data.frame(
-                fold_num = eval_counter,
-                sample_id = rownames(test_data_outer),
-                actual = actual_labels_cv,
-                predicted = pred_class_cv,
-                stringsAsFactors = FALSE
+              # Append per-sample class probabilities for post-hoc collapsed-group AUC
+              prob_cols_nested <- pred_prob_cv
+              colnames(prob_cols_nested) <- paste0("prob_", colnames(prob_cols_nested))
+              all_predictions[[eval_counter]] <- cbind(
+                data.frame(
+                  fold_num = eval_counter,
+                  sample_id = rownames(test_data_outer),
+                  actual = actual_labels_cv,
+                  predicted = pred_class_cv,
+                  stringsAsFactors = FALSE
+                ),
+                prob_cols_nested
               )
             },
             error = function(e) {
@@ -4278,12 +4284,18 @@ perform_cross_validation <- function(ml_data_subset, model_name, model_specs,
                   stringsAsFactors = FALSE
                 ))
 
-                all_predictions[[fold_idx]] <- data.frame(
-                  fold_num = fold_idx,
-                  sample_id = rownames(test_data_outer),
-                  actual = actual_labels_cv,
-                  predicted = pred_class_cv,
-                  stringsAsFactors = FALSE
+                # Append per-sample class probabilities for post-hoc collapsed-group AUC
+                prob_cols_cv <- pred_prob_cv
+                colnames(prob_cols_cv) <- paste0("prob_", colnames(prob_cols_cv))
+                all_predictions[[fold_idx]] <- cbind(
+                  data.frame(
+                    fold_num = fold_idx,
+                    sample_id = rownames(test_data_outer),
+                    actual = actual_labels_cv,
+                    predicted = pred_class_cv,
+                    stringsAsFactors = FALSE
+                  ),
+                  prob_cols_cv
                 )
               },
               error = function(e) {
