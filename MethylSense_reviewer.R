@@ -3,10 +3,19 @@
 # ============================================================================
 # Comprehensive Model Validation and Technical Quality Assessment
 # ============================================================================
-# VERSION: 5.7.3
-# DATE: 2026-05-06
+# VERSION: 5.7.4
+# DATE: 2026-05-13
 # GitHub: https://github.com/markusdrag/MethylSense
 # CHANGELOG:
+#   v5.7.4  - BUGFIX: One-vs-rest metrics used hardcoded "Other" as negative-class
+#             label; if a user's treatment mapping included a group called "Other",
+#             the one-vs-rest binarisation would silently collapse or crash.
+#             Now uses collision-safe sentinel "__REST__" instead.
+#           - ROBUST: `calculate_binary_metrics` now uses name-based indexing
+#             (not positional [i,j]) so sensitivity/specificity are correct
+#             regardless of how R's `table()` orders factor levels.
+#           - ROBUST: `calculate_pr_curve` accepts a `neg_label` parameter
+#             instead of hardcoding "Other".
 #   v5.7.3  - BUGFIX: One-vs-rest binary confusion matrix now uses fixed factor levels
 #             so `table()` is always 2x2 (fixes subscript out of bounds when a class
 #             never appears in predicted or actual for that fold/run).
@@ -678,7 +687,7 @@
 #   v6.3.2 - Fixed PCA/UMAP
 # ============================================================================
 
-SCRIPT_VERSION <- "5.7.3"
+SCRIPT_VERSION <- "5.7.4"
 SCRIPT_DATE <- "2026-05-06"
 
 # ================================================================================
@@ -1576,12 +1585,13 @@ strong {
 # ============================================================================
 
 # Calculate PR curve manually
-calculate_pr_curve <- function(actual, probabilities, positive_class) {
+# neg_label: label used for the negative (rest) class; avoids hardcoding "Other"
+calculate_pr_curve <- function(actual, probabilities, positive_class, neg_label = "__REST__") {
   thresholds <- sort(unique(probabilities), decreasing = TRUE)
   pr_data <- data.frame()
 
   for (thresh in thresholds) {
-    predicted <- ifelse(probabilities >= thresh, positive_class, "Other")
+    predicted <- ifelse(probabilities >= thresh, positive_class, neg_label)
     tp <- sum(predicted == positive_class & actual == positive_class)
     fp <- sum(predicted == positive_class & actual != positive_class)
     fn <- sum(predicted != positive_class & actual == positive_class)
@@ -1608,18 +1618,25 @@ calculate_pr_auc <- function(pr_curve) {
 }
 
 # Calculate binary diagnostic metrics from confusion matrix
-calculate_binary_metrics <- function(conf_matrix) {
+# Uses name-based indexing (not positional) so it works regardless of
+# how R's table() orders its levels.  positive_class is the focal class;
+# neg_label is the label used for the "rest" group.
+calculate_binary_metrics <- function(conf_matrix, positive_class, neg_label = "__REST__") {
   if (!inherits(conf_matrix, "table") || nrow(conf_matrix) != 2 || ncol(conf_matrix) != 2) {
     stop(
       "calculate_binary_metrics expects a 2x2 table (Actual x Predicted). ",
-      "Build the table with factor(..., levels = c(\"Other\", positive_class)) on both vectors."
+      "Build the table with factor(..., levels = c(neg_label, positive_class)) on both vectors."
     )
   }
 
-  tp <- as.numeric(conf_matrix[2, 2])
-  tn <- as.numeric(conf_matrix[1, 1])
-  fp <- as.numeric(conf_matrix[1, 2])
-  fn <- as.numeric(conf_matrix[2, 1])
+  # Name-based extraction — safe regardless of factor/table ordering
+  safe_val <- function(m, r, c) {
+    if (r %in% rownames(m) && c %in% colnames(m)) as.numeric(m[r, c]) else 0L
+  }
+  tp <- safe_val(conf_matrix, positive_class, positive_class)
+  tn <- safe_val(conf_matrix, neg_label, neg_label)
+  fp <- safe_val(conf_matrix, neg_label, positive_class)
+  fn <- safe_val(conf_matrix, positive_class, neg_label)
 
   safe_ratio <- function(num, den) {
     ifelse(!is.finite(den) || den == 0, NA_real_, num / den)
@@ -4288,12 +4305,17 @@ if (!file.exists(predictions_file)) {
         roc_data_list <- list()
         pr_data_list <- list()
 
+        # Collision-safe sentinel for the negative (rest) class.
+        # Using "__REST__" avoids breakage if a user's treatment mapping
+        # includes a group literally called "Other".
+        neg_label <- "__REST__"
+
         for (class in classes) {
           cat("          Analysing class:", class, "\n")
 
           # Create binary labels (class vs all others)
-          binary_actual <- ifelse(predictions$actual == class, class, "Other")
-          binary_predicted <- ifelse(predictions$predicted == class, class, "Other")
+          binary_actual <- ifelse(predictions$actual == class, class, neg_label)
+          binary_predicted <- ifelse(predictions$predicted == class, class, neg_label)
 
           # Get probability for this class
           if (class %in% colnames(predictions)) {
@@ -4305,14 +4327,14 @@ if (!file.exists(predictions_file)) {
 
           # Binary confusion matrix: force 2x2 so sparse one-vs-rest cells are not dropped
           # (otherwise table() can be 1x2 / 2x1 / 1x1 and conf_matrix[2,2] crashes).
-          bin_levels <- c("Other", class)
+          bin_levels <- c(neg_label, class)
           binary_conf <- table(
             Actual = factor(binary_actual, levels = bin_levels),
             Predicted = factor(binary_predicted, levels = bin_levels)
           )
 
-          # Calculate binary metrics
-          binary_metrics <- calculate_binary_metrics(binary_conf)
+          # Calculate binary metrics (name-based indexing, not positional)
+          binary_metrics <- calculate_binary_metrics(binary_conf, positive_class = class, neg_label = neg_label)
 
           cat("            Sensitivity:", round(binary_metrics$sensitivity, 4), "\n")
           cat("            Specificity:", round(binary_metrics$specificity, 4), "\n")
@@ -4327,7 +4349,7 @@ if (!file.exists(predictions_file)) {
           roc_obj <- roc(
             response = binary_actual,
             predictor = class_prob,
-            levels = c("Other", class),
+            levels = c(neg_label, class),
             direction = "<",
             quiet = TRUE
           )
@@ -4349,7 +4371,7 @@ if (!file.exists(predictions_file)) {
           )
 
           # PR curve analysis
-          pr_curve <- calculate_pr_curve(binary_actual, class_prob, class)
+          pr_curve <- calculate_pr_curve(binary_actual, class_prob, class, neg_label = neg_label)
           pr_auc <- calculate_pr_auc(pr_curve)
 
           cat("            PR-AUC:", round(pr_auc, 4), "\n\n")
