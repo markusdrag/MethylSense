@@ -7,8 +7,8 @@
 #          → methylKit methylRaw objects for downstream DMR and ML analysis
 #
 # Author: Markus Hodal Drag
-# Version: 5.7.3
-# Release Date: 2026-05-01
+# Version: 5.8.0
+# Release Date: 2026-07-03
 # GitHub: https://github.com/markusdrag/MethylSense
 #
 # Citation:
@@ -20,8 +20,8 @@
 #   https://doi.org/10.1128/jcm.01054-25
 # ================================================================================
 
-SCRIPT_VERSION <- "5.7.3"
-SCRIPT_DATE <- "2026-05-06"
+SCRIPT_VERSION <- "5.8.0"
+SCRIPT_DATE <- "2026-07-03"
 
 suppressPackageStartupMessages({
   library(optparse)
@@ -76,6 +76,26 @@ option_list <- list(
     help = "Minimum coverage per CpG [default: %default]",
     metavar = "INTEGER"
   ),
+  make_option("--mapq_column",
+    type = "character",
+    default = NULL,
+    help = paste(
+      "Name of the sample-sheet column holding each sample's mean mapping",
+      "quality (MAPQ). Combined with --min_mapq, samples below the threshold",
+      "are dropped before any BED conversion. [default: no MAPQ filtering]"
+    ),
+    metavar = "CHARACTER"
+  ),
+  make_option("--min_mapq",
+    type = "double",
+    default = NULL,
+    help = paste(
+      "Minimum mean mapping quality to retain a sample (keeps samples with",
+      "MAPQ >= this value, i.e. equal or better). Requires --mapq_column.",
+      "[default: no MAPQ filtering]"
+    ),
+    metavar = "NUMERIC"
+  ),
   make_option("--force_convert",
     action = "store_true",
     default = FALSE,
@@ -102,6 +122,67 @@ if (is.null(opt$species) || is.null(opt$sample_sheet) ||
   is.null(opt$bed_dir) || is.null(opt$output_dir)) {
   print_help(parser)
   stop("\nError: Missing required arguments.\n", call. = FALSE)
+}
+
+# Validate MAPQ filtering arguments (both must be supplied together)
+if (!is.null(opt$min_mapq) && is.null(opt$mapq_column)) {
+  stop("\nError: --min_mapq requires --mapq_column so the script knows which sample-sheet column to read.\n", call. = FALSE)
+}
+if (!is.null(opt$mapq_column) && is.null(opt$min_mapq)) {
+  stop("\nError: --mapq_column requires --min_mapq (the minimum mean mapping quality to keep).\n", call. = FALSE)
+}
+
+# ================================================================================
+# HELPER: SAMPLE-LEVEL MAPQ FILTERING
+# ================================================================================
+# Drops samples whose per-sample mean mapping quality (read from a user-named
+# column in the sample sheet) is below `min_mapq`. Retains samples with
+# MAPQ >= min_mapq (equal or better). Returns the sheet unchanged when either
+# argument is not supplied.
+
+filter_samples_by_mapq <- function(sheet, mapq_column = NULL, min_mapq = NULL) {
+  if (is.null(mapq_column) || is.null(min_mapq)) {
+    return(sheet)
+  }
+
+  if (!mapq_column %in% colnames(sheet)) {
+    stop(
+      "MAPQ column '", mapq_column, "' not found in sample sheet.\n",
+      "  Available columns: ", paste(colnames(sheet), collapse = ", "),
+      call. = FALSE
+    )
+  }
+
+  mapq_values <- suppressWarnings(as.numeric(sheet[[mapq_column]]))
+  n_before <- nrow(sheet)
+  n_missing <- sum(is.na(mapq_values))
+
+  keep <- !is.na(mapq_values) & mapq_values >= min_mapq
+  dropped <- sheet[!keep, , drop = FALSE]
+  sheet_filtered <- sheet[keep, , drop = FALSE]
+
+  cat("MAPQ filtering:\n")
+  cat("  Column:            ", mapq_column, "\n")
+  cat("  Threshold:          MAPQ >=", min_mapq, "\n")
+  cat("  Samples before:    ", n_before, "\n")
+  cat("  Samples retained:  ", nrow(sheet_filtered), "\n")
+  cat("  Samples dropped:   ", n_before - nrow(sheet_filtered), "\n")
+  if (n_missing > 0) {
+    cat("  Note: ", n_missing, "sample(s) had missing/non-numeric MAPQ and were dropped\n")
+  }
+  if (nrow(dropped) > 0) {
+    drop_ids <- if ("ID" %in% colnames(dropped)) dropped$ID else as.character(seq_len(nrow(dropped)))
+    cat("  Dropped samples:   ", paste(head(drop_ids, 10), collapse = ", "))
+    if (length(drop_ids) > 10) cat(", ... and", length(drop_ids) - 10, "more")
+    cat("\n")
+  }
+  cat("\n")
+
+  if (nrow(sheet_filtered) == 0) {
+    stop("No samples remain after MAPQ filtering (threshold MAPQ >= ", min_mapq, ").", call. = FALSE)
+  }
+
+  sheet_filtered
 }
 
 # Create output directory
@@ -167,6 +248,11 @@ cat("  BED Directory:      ", opt$bed_dir, "\n")
 cat("  Output Directory:   ", opt$output_dir, "\n")
 cat("  CPU Cores:          ", opt$cores, "\n")
 cat("  Min Coverage:       ", opt$min_coverage, " reads per CpG\n")
+if (!is.null(opt$mapq_column) && !is.null(opt$min_mapq)) {
+  cat("  MAPQ Filter:         keep", opt$mapq_column, ">=", opt$min_mapq, "\n")
+} else {
+  cat("  MAPQ Filter:         Disabled\n")
+}
 cat("  Parallel Mode:      ", ifelse(opt$no_parallel, "Disabled", "Enabled"), "\n")
 cat("  Force Convert:      ", ifelse(opt$force_convert, "Yes", "No"), "\n")
 cat("\n")
@@ -206,6 +292,10 @@ cat("  Total samples in sheet: ", nrow(sheet_all), "\n")
 cat("  Samples for", opt$species, ":", nrow(sheet), "\n")
 cat("  Columns: bedFileOrg (input) -> bedFile (output)\n")
 cat("\n")
+
+# Optional sample-level MAPQ filtering (keeps samples with MAPQ >= --min_mapq)
+n_samples_pre_mapq <- nrow(sheet)
+sheet <- filter_samples_by_mapq(sheet, opt$mapq_column, opt$min_mapq)
 
 original_bed_files <- file.path(opt$bed_dir, sheet$bedFileOrg)
 converted_files <- file.path(opt$bed_dir, sheet$bedFile)
@@ -518,6 +608,17 @@ writeLines(c(
   paste0("Mean CpG sites:         ", format(round(mean(sample_sizes)), big.mark = ",")),
   paste0("Median CpG sites:       ", format(round(median(sample_sizes)), big.mark = ",")),
   paste0("Min coverage filter:    ", opt$min_coverage),
+  paste0(
+    "MAPQ filter:            ",
+    if (!is.null(opt$mapq_column) && !is.null(opt$min_mapq)) {
+      paste0(
+        opt$mapq_column, " >= ", opt$min_mapq,
+        " (", n_samples_pre_mapq, " -> ", length(meth_obj), " samples)"
+      )
+    } else {
+      "none"
+    }
+  ),
   paste0("Output file:            ", basename(outfile)),
   "================================================================================",
   "",

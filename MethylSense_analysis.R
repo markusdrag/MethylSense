@@ -5,8 +5,8 @@
 # ================================================================================
 #
 # Script Name: MethylSense_analysis.R
-# Version: 5.7.3 (Public Release)
-# Date: 2026-05-01
+# Version: 5.8.0 (Public Release)
+# Date: 2026-07-03
 # GitHub: https://github.com/markusdrag/MethylSense
 # Authors: Markus Hodal Drag, Christina Hvilsom, Louise Ladefoged Poulsen,
 #          Henrik Elvang Jensen, Stamatios Alan Tahas, Christoph Leineweber,
@@ -208,8 +208,8 @@
 # ================================================================================
 
 # Script version for logging
-SCRIPT_VERSION <- "5.7.3"
-SCRIPT_DATE <- "2026-05-06"
+SCRIPT_VERSION <- "5.8.0"
+SCRIPT_DATE <- "2026-07-03"
 
 cat("\n")
 cat("================================================================================\n")
@@ -9534,8 +9534,8 @@ for (region_idx in seq_along(region_data)) {
 
         # Safety check: ensure at least 1 sample per group
         if (min_samples_per_group < 1) {
-          min_samples_per_group <- 1
-          log_msg(paste("[WARN] Calculated min.per.group < 1, setting to 1"))
+          min_samples_per_group <- 1L
+          log_msg(paste("[WARN] Calculated min.per.group < 1, setting to 1L"))
         }
 
         # CRITICAL: Determine if we should use NULL or the calculated value
@@ -9548,7 +9548,7 @@ for (region_idx in seq_along(region_data)) {
           log_msg(paste("  Smallest group:", min(treatment_table), "samples"))
           log_msg(paste("  This will require regions present in ALL samples per group"))
         } else {
-          unite_min_per_group <- min_samples_per_group
+          unite_min_per_group <- as.integer(min_samples_per_group)
           log_msg(paste(
             "[UNITE] Using min.per.group =", min_samples_per_group,
             "samples (", round(opt$min_samples_per_region * 100, 1), "% of smallest group)"

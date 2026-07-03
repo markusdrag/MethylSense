@@ -10,7 +10,7 @@
 
 [![License: AFL-3.0](https://img.shields.io/badge/Licence-AFL--3.0-blue.svg)](https://opensource.org/licenses/AFL-3.0)
 [![R](https://img.shields.io/badge/R-%3E%3D4.0-blue.svg)](https://www.r-project.org/)
-[![Version](https://img.shields.io/badge/version-5.7.3-brightgreen.svg)](https://github.com/markusdrag/MethylSense)
+[![Version](https://img.shields.io/badge/version-5.8.0-brightgreen.svg)](https://github.com/markusdrag/MethylSense)
 
 </div>
 
@@ -702,6 +702,8 @@ Preprocesses raw BED files into methylKit objects for analysis.
 <tr style="border-bottom: 1px solid #ddd;"><td style="padding: 10px;">--assembly</td><td style="padding: 10px;">string</td><td style="padding: 10px;">auto</td><td style="padding: 10px;">Genome assembly name</td></tr>
 <tr style="border-bottom: 1px solid #ddd;"><td style="padding: 10px;">--cores</td><td style="padding: 10px;">int</td><td style="padding: 10px;">20</td><td style="padding: 10px;">Number of CPU cores for parallel processing</td></tr>
 <tr style="border-bottom: 1px solid #ddd;"><td style="padding: 10px;">--min_coverage</td><td style="padding: 10px;">int</td><td style="padding: 10px;">1</td><td style="padding: 10px;">Minimum read coverage per CpG site</td></tr>
+<tr style="border-bottom: 1px solid #ddd;"><td style="padding: 10px;">--mapq_column</td><td style="padding: 10px;">string</td><td style="padding: 10px;">none</td><td style="padding: 10px;">Name of the sample-sheet column holding each sample's mean mapping quality (MAPQ). Enables sample-level MAPQ filtering when combined with <code>--min_mapq</code>.</td></tr>
+<tr style="border-bottom: 1px solid #ddd;"><td style="padding: 10px;">--min_mapq</td><td style="padding: 10px;">numeric</td><td style="padding: 10px;">none</td><td style="padding: 10px;">Minimum mean mapping quality to keep a sample (retains samples with MAPQ &ge; value, i.e. equal or better). Requires <code>--mapq_column</code>.</td></tr>
 <tr style="border-bottom: 1px solid #ddd;"><td style="padding: 10px;">--force_convert</td><td style="padding: 10px;">flag</td><td style="padding: 10px;">false</td><td style="padding: 10px;">Force re-conversion of existing files</td></tr>
 <tr><td style="padding: 10px;">--no_parallel</td><td style="padding: 10px;">flag</td><td style="padding: 10px;">false</td><td style="padding: 10px;">Disable parallel processing</td></tr>
 </tbody>
@@ -716,6 +718,19 @@ Rscript MethylSense_load_data.R \
   --sample_sheet ./samples.xlsx \
   --bed_dir ./bed_files \
   --output_dir ./preprocessed \
+  --cores 8
+```
+
+**Example with sample-level MAPQ filtering** (keep only samples whose mean mapping quality is 25 or better, read from the `mean_mapping_quality` column of the sample sheet):
+
+```bash
+Rscript MethylSense_load_data.R \
+  --species "Gallus_gallus" \
+  --sample_sheet ./samples.xlsx \
+  --bed_dir ./bed_files \
+  --output_dir ./preprocessed \
+  --mapq_column "mean_mapping_quality" \
+  --min_mapq 25 \
   --cores 8
 ```
 
