@@ -3,13 +3,14 @@
 # ============================================================================
 # Comprehensive Model Validation and Technical Quality Assessment
 # ============================================================================
-# VERSION: 5.8.0
+# VERSION: 6.0.0
 # DATE: 2026-07-03
 # GitHub: https://github.com/markusdrag/MethylSense
 # CHANGELOG:
-#   v5.8.0  - RELEASE: Version bump across the MethylSense suite alongside new
-#             sample-level MAPQ filtering in MethylSense_load_data.R
-#             (--mapq_column / --min_mapq). No behavioural change to the reviewer.
+#   v6.0.0  - RELEASE: Version reset to a clean 6.0.0 baseline (supersedes the
+#             inconsistent legacy 5.x tag history). Ships new sample-level MAPQ
+#             filtering in MethylSense_load_data.R (--mapq_column / --min_mapq).
+#             No behavioural change to the reviewer.
 #   v5.7.4  - BUGFIX: One-vs-rest metrics used hardcoded "Other" as negative-class
 #             label; if a user's treatment mapping included a group called "Other",
 #             the one-vs-rest binarisation would silently collapse or crash.
@@ -690,7 +691,7 @@
 #   v6.3.2 - Fixed PCA/UMAP
 # ============================================================================
 
-SCRIPT_VERSION <- "5.8.0"
+SCRIPT_VERSION <- "6.0.0"
 SCRIPT_DATE <- "2026-07-03"
 
 # ================================================================================

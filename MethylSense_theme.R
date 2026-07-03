@@ -8,7 +8,7 @@
 # Usage: source this file at the top of any MethylSense script:
 #   source(file.path(script_dir, "MethylSense_theme.R"))
 #
-# Version: 5.8.0
+# Version: 6.0.0
 # Date: 2026-07-03
 # ============================================================================
 

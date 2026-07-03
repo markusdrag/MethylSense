@@ -10,7 +10,7 @@
 
 [![License: AFL-3.0](https://img.shields.io/badge/Licence-AFL--3.0-blue.svg)](https://opensource.org/licenses/AFL-3.0)
 [![R](https://img.shields.io/badge/R-%3E%3D4.0-blue.svg)](https://www.r-project.org/)
-[![Version](https://img.shields.io/badge/version-5.8.0-brightgreen.svg)](https://github.com/markusdrag/MethylSense)
+[![Version](https://img.shields.io/badge/version-6.0.0-brightgreen.svg)](https://github.com/markusdrag/MethylSense)
 
 </div>
 
@@ -733,6 +733,55 @@ Rscript MethylSense_load_data.R \
   --min_mapq 25 \
   --cores 8
 ```
+
+#### Sample-level MAPQ filtering
+
+Mapping quality (MAPQ) reflects how confidently each read was aligned to the
+reference genome. Samples with a low **mean** MAPQ tend to carry more ambiguous
+or mis-placed alignments, which introduces noise into per-CpG methylation
+estimates and can degrade downstream DMR detection and classifier performance.
+MethylSense lets you exclude such low-confidence samples *before* any data is
+processed, so weak samples never enter the methylKit objects, the DMR analysis,
+or model training.
+
+**How it works**
+
+- You compute a per-sample summary statistic (typically the mean mapping quality
+  across all reads, e.g. from `samtools stats` / your alignment QC) and store it
+  as a column in the sample sheet, one value per sample.
+- `--mapq_column` tells the script **which column** to read that value from. This
+  is a name, not a fixed column, so you can call it whatever you like
+  (`mean_mapping_quality`, `MAPQ`, `mean_mapq`, ...) — the script looks up the
+  column by the name you provide. If the named column does not exist, the script
+  stops and lists the available columns.
+- `--min_mapq` sets the **threshold**. A sample is kept when its value is
+  *greater than or equal to* the threshold (equal or better); samples below it
+  are dropped. For example, `--min_mapq 25` keeps every sample with mean
+  MAPQ &ge; 25 and removes the rest.
+
+**Behaviour and safeguards**
+
+- Filtering happens in Step 1, right after the species filter and **before** BED
+  conversion — dropped samples are never converted or loaded.
+- Both flags must be supplied **together**. Passing only one is an error, and
+  omitting both leaves the run completely unchanged (no filtering).
+- Samples whose MAPQ value is missing or non-numeric are treated as failing the
+  filter and are dropped (with a note in the log).
+- The number of samples before/after, the count dropped, and the dropped sample
+  IDs are printed to the console and recorded in the preprocessing summary
+  (`*_preprocessing_summary.txt`) for reproducible reporting. If no samples pass
+  the threshold, the script stops with a clear message.
+
+Example sample sheet (only the relevant columns shown):
+
+| ID | Species | treatMethylkit | bedFileOrg | bedFile | mean_mapping_quality |
+|----|---------|----------------|------------|---------|----------------------|
+| S1 | Gallus_gallus | 1 | S1.org.bed | S1.bed | 31.4 |
+| S2 | Gallus_gallus | 0 | S2.org.bed | S2.bed | 22.1 |
+| S3 | Gallus_gallus | 1 | S3.org.bed | S3.bed | 27.8 |
+
+With `--mapq_column "mean_mapping_quality" --min_mapq 25`, samples **S1** and
+**S3** are retained and **S2** (22.1 &lt; 25) is dropped.
 
 ---
 
