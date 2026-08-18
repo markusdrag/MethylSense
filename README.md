@@ -1,8 +1,8 @@
 <div align="center">
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="logos/methylsense_logo_dark.png?v=1">
-  <source media="(prefers-color-scheme: light)" srcset="logos/methylsense_logo_white.png?v=1">
+  <source media="(prefers-color-scheme: dark)" srcset="logos/methylsense_dark_v2.png?v=1">
+  <source media="(prefers-color-scheme: light)" srcset="logos/methylsense_light_v2.png?v=1">
   <img alt="MethylSense Logo" src="logos/methylsense_logo_white.png?v=1" width="400">
 </picture>
 
