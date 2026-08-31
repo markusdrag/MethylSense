@@ -10,7 +10,7 @@
 
 [![License: AFL-3.0](https://img.shields.io/badge/Licence-AFL--3.0-blue.svg)](https://opensource.org/licenses/AFL-3.0)
 [![R](https://img.shields.io/badge/R-%3E%3D4.0-blue.svg)](https://www.r-project.org/)
-[![Version](https://img.shields.io/badge/version-6.0.0-brightgreen.svg)](https://github.com/markusdrag/MethylSense)
+[![Version](https://img.shields.io/badge/version-6.0.1-brightgreen.svg)](https://github.com/markusdrag/MethylSense)
 
 </div>
 
@@ -268,7 +268,8 @@ Rscript MethylSense_general_data_overview.R \
   --plot_format png,pdf \
   --infection_col Infection \
   --sample_id_col ID \
-  --study_col Study
+  --study_col Study \
+  --group_colors 'Control=#1B5E20,Infected=#4A148C'
 ```
 
 What happens: The script analyses your DMR results and generates publication-ready figures including:
@@ -1226,6 +1227,9 @@ Creates visualisations of the methylation data landscape.
 <tr><td style="padding: 10px; border-bottom: 1px solid #ddd;">--plot_width</td><td style="padding: 10px; border-bottom: 1px solid #ddd;">float</td><td style="padding: 10px; border-bottom: 1px solid #ddd;">12</td><td style="padding: 10px; border-bottom: 1px solid #ddd;">Plot width in inches</td></tr>
 <tr><td style="padding: 10px; border-bottom: 1px solid #ddd;">--plot_height</td><td style="padding: 10px; border-bottom: 1px solid #ddd;">float</td><td style="padding: 10px; border-bottom: 1px solid #ddd;">8</td><td style="padding: 10px; border-bottom: 1px solid #ddd;">Plot height in inches</td></tr>
 <tr><td style="padding: 10px; border-bottom: 1px solid #ddd;">--plot_dpi</td><td style="padding: 10px; border-bottom: 1px solid #ddd;">int</td><td style="padding: 10px; border-bottom: 1px solid #ddd;">300</td><td style="padding: 10px; border-bottom: 1px solid #ddd;">Resolution for raster formats</td></tr>
+tr><td style="padding: 10px; border-bottom: 1px solid #ddd;">--group_colors</td><td style="padding: 10px; border-bottom: 1px solid #ddd;">string</td><td style="padding: 10px; border-bottom: 1px solid #ddd;">auto</td><td style="padding: 10px; border-bottom: 1px solid #ddd;">Named <code>Group=colour,...</code> or positional colours for --infection_col</td></tr>
+<tr><td style="padding: 10px; border-bottom: 1px solid #ddd;">--species</td><td style="padding: 10px; border-bottom: 1px solid #ddd;">string</td><td style="padding: 10px; border-bottom: 1px solid #ddd;">all rows</td><td style="padding: 10px; border-bottom: 1px solid #ddd;">Comma-separated values of --species_col to keep (e.g. Minipig)</td></tr>
+<tr><td style="padding: 10px; border-bottom: 1px solid #ddd;">--species_col</td><td style="padding: 10px; border-bottom: 1px solid #ddd;">string</td><td style="padding: 10px; border-bottom: 1px solid #ddd;">Species</td><td style="padding: 10px; border-bottom: 1px solid #ddd;">Column used by --species</td></tr>
 <tr><td style="padding: 10px;">--volcano_meth_threshold</td><td style="padding: 10px;">float</td><td style="padding: 10px;">5</td><td style="padding: 10px;">Methylation difference threshold (%)</td></tr>
 </tbody>
 </table>

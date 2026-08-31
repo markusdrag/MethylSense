@@ -17,14 +17,23 @@
 # - Region size optimisation analysis
 #
 # Author: Markus Hodal Drag
-# Version: 6.0.0
-# Date: 2026-07-03
+# Version: 6.0.1
+# Date: 2026-08-31
 # GitHub: https://github.com/markusdrag/MethylSense
+#
+#   v6.0.1  - FIX: heatmap/ridge group colours no longer collapse to "" for
+#             non-infection labels (e.g. Lean_SGLT2i, Obese) or NA sheet rows.
+#             Added --group_colors (Name=colour or positional). Blank labels
+#             become Unlabelled (Neutral). pheatmap is wrapped so a heatmap
+#             failure does not abort later analyses.
+#             NEW: --species / --species_col subset the sample sheet (combined
+#             SGLT2i + statin workbooks: Minipig vs Minipig_Statin).
+#   v6.0.0  - Public release baseline
 #
 # ================================================================================
 
-SCRIPT_VERSION <- "6.0.0"
-SCRIPT_DATE <- "2026-07-03"
+SCRIPT_VERSION <- "6.0.1"
+SCRIPT_DATE <- "2026-08-31"
 
 # ================================================================================
 # LOAD REQUIRED LIBRARIES
@@ -61,6 +70,104 @@ script_dir_theme <- if (length(file_arg_theme)) {
 }
 source(file.path(script_dir_theme, "MethylSense_theme.R"))
 
+UNLABELLED_GROUP <- "Unlabelled"
+
+is_valid_r_colour <- function(col) {
+  if (is.null(col) || length(col) != 1 || is.na(col) || !nzchar(trimws(as.character(col)))) {
+    return(FALSE)
+  }
+  tryCatch({
+    grDevices::col2rgb(col)
+    TRUE
+  }, error = function(e) FALSE)
+}
+
+normalise_group_label <- function(x) {
+  x <- as.character(x)
+  blank <- is.na(x) | !nzchar(trimws(x))
+  x[blank] <- UNLABELLED_GROUP
+  x
+}
+
+auto_colour_for_label <- function(label, index, palette) {
+  s <- tolower(trimws(as.character(label)))
+  if (!nzchar(s) || s %in% c("unlabelled", "na", "nan", "none")) {
+    return(METHYLSENSE_COLORS$Neutral)
+  }
+  if (grepl("sham", s)) {
+    return(METHYLSENSE_COLORS$Neutral)
+  }
+  if (grepl("control|healthy|placebo|negative|vehicle|\\bwt\\b|wild[- ]?type", s)) {
+    return(METHYLSENSE_COLORS$Control)
+  }
+  if (grepl("infect|asper|positive|pathogen|diseas|\\bcase\\b", s)) {
+    return(METHYLSENSE_COLORS$Infected)
+  }
+  if (grepl("suspect|intermed|border", s)) {
+    return(METHYLSENSE_COLORS$Suspected)
+  }
+  if (grepl("drug|treat|sglt|statin|dapa|empa|cana", s)) {
+    return(METHYLSENSE_COLORS$Extended[min(5L, length(METHYLSENSE_COLORS$Extended))])
+  }
+  if (grepl("obes|hfd|high[- ]?fat", s)) {
+    return(METHYLSENSE_COLORS$Extended[min(4L, length(METHYLSENSE_COLORS$Extended))])
+  }
+  palette[((index - 1L) %% length(palette)) + 1L]
+}
+
+parse_overview_group_colors <- function(color_string) {
+  named <- character(0)
+  positional <- character(0)
+  if (is.null(color_string) || !nzchar(trimws(as.character(color_string)))) {
+    return(list(named = named, positional = positional))
+  }
+  parts <- trimws(strsplit(as.character(color_string), ",")[[1]])
+  parts <- parts[nzchar(parts)]
+  for (part in parts) {
+    kv <- strsplit(part, "=", fixed = TRUE)[[1]]
+    if (length(kv) >= 2) {
+      named[trimws(kv[1])] <- trimws(paste(kv[-1], collapse = "="))
+    } else {
+      positional <- c(positional, part)
+    }
+  }
+  list(named = named, positional = positional)
+}
+
+build_group_colour_map <- function(labels, color_string = NULL) {
+  labels <- unique(normalise_group_label(labels))
+  palette <- unique(c(
+    METHYLSENSE_COLORS$Control,
+    METHYLSENSE_COLORS$Suspected,
+    METHYLSENSE_COLORS$Infected,
+    METHYLSENSE_COLORS$Extended,
+    METHYLSENSE_COLORS$Neutral
+  ))
+  parsed <- parse_overview_group_colors(color_string)
+  cols <- character(length(labels))
+  names(cols) <- labels
+  pos_i <- 0L
+  for (i in seq_along(labels)) {
+    lab <- labels[i]
+    chosen <- NA_character_
+    if (lab %in% names(parsed$named) && is_valid_r_colour(parsed$named[[lab]])) {
+      chosen <- parsed$named[[lab]]
+    } else {
+      pos_i <- pos_i + 1L
+      if (pos_i <= length(parsed$positional) && is_valid_r_colour(parsed$positional[pos_i])) {
+        chosen <- parsed$positional[pos_i]
+      } else {
+        chosen <- auto_colour_for_label(lab, i, palette)
+      }
+    }
+    if (!is_valid_r_colour(chosen)) {
+      chosen <- METHYLSENSE_COLORS$Neutral
+    }
+    cols[lab] <- chosen
+  }
+  cols
+}
+
 # ================================================================================
 # COMMAND-LINE ARGUMENTS
 # ================================================================================
@@ -83,7 +190,12 @@ option_list <- list(
   ),
   make_option(c("--infection_col"),
     type = "character", default = "InfectionStatus",
-    help = "Column name for infection status in sample sheet [default: InfectionStatus]",
+    help = "Column name for group / infection status in sample sheet [default: InfectionStatus]",
+    metavar = "character"
+  ),
+  make_option(c("--group_colors"),
+    type = "character", default = NULL,
+    help = "Colours for --infection_col levels. Named 'Group=colour,...' or positional 'colour1,colour2,...' [default: auto]",
     metavar = "character"
   ),
   make_option(c("--study_col"),
@@ -94,6 +206,16 @@ option_list <- list(
   make_option(c("--sample_id_col"),
     type = "character", default = "Lab_ID",
     help = "Column name for sample IDs in sample sheet [default: Lab_ID]",
+    metavar = "character"
+  ),
+  make_option(c("--species_col"),
+    type = "character", default = "Species",
+    help = "Column used by --species to subset the sample sheet [default: Species]",
+    metavar = "character"
+  ),
+  make_option(c("--species"),
+    type = "character", default = NULL,
+    help = "Comma-separated --species_col values to keep (e.g. Minipig or Minipig_Statin). If omitted, all rows are kept.",
     metavar = "character"
   ),
   make_option(c("--output_dir"),
@@ -274,6 +396,38 @@ if (length(missing_cols) > 0) {
 
 cat(sprintf("     Infection status column: %s\n", opt$infection_col))
 cat(sprintf("     Study grouping column: %s\n", opt$study_col))
+cat(sprintf("     Sample ID column: %s\n", opt$sample_id_col))
+
+if (!is.null(opt$species) && nzchar(trimws(as.character(opt$species)))) {
+  if (!opt$species_col %in% colnames(sample_metadata)) {
+    cat("\nAvailable columns in sample sheet:\n")
+    for (col in colnames(sample_metadata)) {
+      cat(sprintf("  - %s\n", col))
+    }
+    stop(sprintf(
+      "--species was set but column '%s' is not in the sample sheet. Use --species_col to name the column.",
+      opt$species_col
+    ))
+  }
+  keep_species <- trimws(strsplit(as.character(opt$species), ",")[[1]])
+  keep_species <- keep_species[nzchar(keep_species)]
+  species_vals <- trimws(as.character(sample_metadata[[opt$species_col]]))
+  n_before <- nrow(sample_metadata)
+  cat(sprintf("\n[INFO] Samples by %s (before filter):\n", opt$species_col))
+  print(table(sample_metadata[[opt$species_col]], useNA = "ifany"))
+  sample_metadata <- sample_metadata[species_vals %in% keep_species, , drop = FALSE]
+  cat(sprintf(
+    "[INFO] Kept %d / %d samples where %s is in: %s\n",
+    nrow(sample_metadata), n_before, opt$species_col, paste(keep_species, collapse = ", ")
+  ))
+  if (nrow(sample_metadata) == 0) {
+    stop(sprintf(
+      "No sample-sheet rows left after --species filter. Available %s values: %s",
+      opt$species_col,
+      paste(unique(species_vals), collapse = ", ")
+    ))
+  }
+}
 
 # Count samples by group
 infection_counts <- table(sample_metadata[[opt$infection_col]], useNA = "ifany")
@@ -829,33 +983,29 @@ cat("\n=========================================================================
 cat("Analysis 6: Sample-level methylation heatmaps\n")
 cat("================================================================================\n\n")
 
-# Prepare annotation colors - intelligent color scheme
-# Get unique infection statuses
-unique_infections <- unique(as.character(sample_metadata[[opt$infection_col]]))
-
-# Intelligent infection status coloring: Control = dark green, Infected = red/purple
-infection_colors <- character(length(unique_infections))
-names(infection_colors) <- unique_infections
-
-for (status in unique_infections) {
-  if (grepl("Control|control|CONTROL", status, ignore.case = TRUE)) {
-    infection_colors[status] <- METHYLSENSE_COLORS$Control
-  } else if (grepl("Infect|infect|INFECT|Asper|asper", status, ignore.case = TRUE)) {
-    infection_colors[status] <- METHYLSENSE_COLORS$Infected
-  } else if (grepl("Suspect|suspect|SUSPECT", status, ignore.case = TRUE)) {
-    infection_colors[status] <- METHYLSENSE_COLORS$Suspected
-  } else {
-    infection_colors[status] <- METHYLSENSE_COLORS$Neutral
-  }
+# Prepare annotation colours. Blank / NA sheet cells become Unlabelled.
+# Keyword matching covers infection studies and treatment/obesity designs;
+# unmatched labels cycle the MethylSense extended palette. Never leave "".
+infection_colors <- build_group_colour_map(
+  sample_metadata[[opt$infection_col]],
+  opt$group_colors
+)
+cat("[INFO] Group annotation colours:\n")
+for (nm in names(infection_colors)) {
+  cat(sprintf("       %s = %s\n", nm, infection_colors[[nm]]))
 }
 
-# Study colors
-unique_studies <- unique(as.character(sample_metadata[[opt$study_col]]))
-study_colors <- brewer.pal(min(length(unique_studies), 8), "Set2")
-if (length(unique_studies) > 8) {
-  study_colors <- colorRampPalette(brewer.pal(8, "Set2"))(length(unique_studies))
+unique_studies <- unique(normalise_group_label(sample_metadata[[opt$study_col]]))
+n_studies <- length(unique_studies)
+study_colors <- if (n_studies <= 8) {
+  brewer.pal(max(n_studies, 3), "Set2")[seq_len(n_studies)]
+} else {
+  colorRampPalette(brewer.pal(8, "Set2"))(n_studies)
 }
 names(study_colors) <- unique_studies
+if (UNLABELLED_GROUP %in% names(study_colors)) {
+  study_colors[[UNLABELLED_GROUP]] <- METHYLSENSE_COLORS$Neutral
+}
 
 annotation_colors <- list(
   Infection_Status = infection_colors,
@@ -905,11 +1055,22 @@ for (region_size in names(all_meth_objects)) {
     ))
   }
   sample_annot <- data.frame(
-    Infection_Status = as.character(sample_metadata[[opt$infection_col]][md_idx]),
-    Study            = as.character(sample_metadata[[opt$study_col]][md_idx]),
+    Infection_Status = normalise_group_label(sample_metadata[[opt$infection_col]][md_idx]),
+    Study            = normalise_group_label(sample_metadata[[opt$study_col]][md_idx]),
     row.names        = colnames(heatmap_matrix),
     stringsAsFactors = FALSE
   )
+  extra_status <- setdiff(unique(sample_annot$Infection_Status), names(annotation_colors$Infection_Status))
+  if (length(extra_status) > 0) {
+    extra_map <- build_group_colour_map(extra_status, NULL)
+    annotation_colors$Infection_Status <- c(annotation_colors$Infection_Status, extra_map)
+  }
+  extra_study <- setdiff(unique(sample_annot$Study), names(annotation_colors$Study))
+  if (length(extra_study) > 0) {
+    for (st in extra_study) {
+      annotation_colors$Study[[st]] <- METHYLSENSE_COLORS$Neutral
+    }
+  }
 
   # Create heatmap in all requested formats
   region_label <- sprintf("%d KB", as.numeric(region_size) / 1000)
@@ -930,20 +1091,34 @@ for (region_size in names(all_meth_objects)) {
       svg(filepath, width = opt$plot_width, height = opt$plot_height)
     }
 
-    pheatmap(heatmap_matrix,
-      color = colorRampPalette(c("blue", "white", "red"))(100),
-      breaks = seq(0, 100, length.out = 101),
-      cluster_rows = TRUE,
-      cluster_cols = TRUE,
-      show_colnames = FALSE,
-      annotation_col = sample_annot,
-      annotation_colors = annotation_colors,
-      main = sprintf("Top %d DMRs methylation heatmap (%s regions)", opt$heatmap_top_n, region_label),
-      fontsize = 10
-    )
-
-    dev.off()
-    cat(sprintf("[OK] Saved: %s\n", filepath))
+    heatmap_ok <- tryCatch({
+      pheatmap(heatmap_matrix,
+        color = colorRampPalette(c("blue", "white", "red"))(100),
+        breaks = seq(0, 100, length.out = 101),
+        cluster_rows = TRUE,
+        cluster_cols = TRUE,
+        show_colnames = FALSE,
+        annotation_col = sample_annot,
+        annotation_colors = annotation_colors,
+        main = sprintf("Top %d DMRs methylation heatmap (%s regions)", opt$heatmap_top_n, region_label),
+        fontsize = 10
+      )
+      TRUE
+    }, error = function(e) {
+      cat(sprintf(
+        "  [WARN] pheatmap failed for %s bp (%s): %s\n",
+        region_size, format, conditionMessage(e)
+      ))
+      FALSE
+    })
+    if (dev.cur() > 1) {
+      dev.off()
+    }
+    if (heatmap_ok) {
+      cat(sprintf("[OK] Saved: %s\n", filepath))
+    } else if (file.exists(filepath)) {
+      unlink(filepath)
+    }
   }
 }
 
