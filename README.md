@@ -269,7 +269,9 @@ Rscript MethylSense_general_data_overview.R \
   --infection_col Infection \
   --sample_id_col ID \
   --study_col Study \
-  --group_colors 'Control=#1B5E20,Infected=#4A148C'
+  --group_colors 'Control=#1B5E20,Infected=#4A148C' \
+  --species_col Species \
+  --species Minipig
 ```
 
 What happens: The script analyses your DMR results and generates publication-ready figures including:
@@ -1243,7 +1245,10 @@ Rscript MethylSense_general_data_overview.R \
   --sample_sheet ./metadata.xlsx \
   --region_sizes "5000,10000,25000" \
   --plot_format svg --plot_dpi 600 \
-  --plot_width 14 --plot_height 10
+  --plot_width 14 --plot_height 10 \
+  --group_colors 'Control=#1B5E20,Treated=#E65100,Disease=#B71C1C' \
+  --species_col Species \
+  --species Minipig
 ```
 
 ---
