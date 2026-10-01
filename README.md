@@ -10,7 +10,7 @@
 
 [![License: AFL-3.0](https://img.shields.io/badge/Licence-AFL--3.0-blue.svg)](https://opensource.org/licenses/AFL-3.0)
 [![R](https://img.shields.io/badge/R-%3E%3D4.0-blue.svg)](https://www.r-project.org/)
-[![Version](https://img.shields.io/badge/version-6.0.1-brightgreen.svg)](https://github.com/markusdrag/MethylSense)
+[![Version](https://img.shields.io/badge/version-6.0.2-brightgreen.svg)](https://github.com/markusdrag/MethylSense)
 
 </div>
 
@@ -109,7 +109,7 @@ If you prefer manual installation, MethylSense depends on packages from both CRA
 ```r
 # CRAN packages
 install.packages(c(
-  "optparse", "qs", "caret", "pROC", "ggplot2", "hrbrthemes", "dplyr", "tidyr",
+  "optparse", "qs2", "caret", "pROC", "ggplot2", "hrbrthemes", "dplyr", "tidyr",
   "randomForest", "e1071", "glmnet", "nnet", "class", "MASS",
   "klaR", "ranger", "xgboost", "pheatmap", "RColorBrewer",
   "data.table", "readxl", "reshape2", "viridis", "corrplot",
@@ -124,6 +124,8 @@ if (!require("BiocManager", quietly = TRUE))
     install.packages("BiocManager")
 BiocManager::install(c("methylKit", "GenomicRanges", "genomation", "regioneR", "IRanges"))
 ```
+
+`qs2` writes the new methylation objects (`.qs2`). An existing `.qs` path is still valid input when the older `qs` package is installed. On R 4.6 and later, CRAN may refuse `qs`, and that only blocks reading those older files.
 
 ### Verify Installation
 
@@ -207,7 +209,7 @@ See the `example_data` folder for a complete working example: **`sample_metadata
 
 Runtime: 5-10 minutes
 
-This step converts raw CpG BED files into a unified methylKit object (qs format). The pipeline normalises coverage across samples, filters low-quality CpG sites, and prepares the data for downstream analysis.
+This step converts raw CpG BED files into a unified methylKit object (qs2 format). The pipeline normalises coverage across samples, filters low-quality CpG sites, and prepares the data for downstream analysis.
 
 ```bash
 Rscript MethylSense_load_data.R \
@@ -219,7 +221,9 @@ Rscript MethylSense_load_data.R \
 
 What happens: Each sample's CpG methylation data is loaded, filtered by minimum coverage thresholds, and combined into a single methylRawList object for efficient analysis.
 
-Output: YYYYMMDD_Species_nN_methylRaw.qs
+Output: YYYYMMDD_Species_nN_methylRaw.qs2
+
+An existing `.qs` path is still valid input for `--qs_file` when the older `qs` package is installed. New files are written as `.qs2`.
 
 ### Step 2: Train diagnostic models
 
@@ -229,7 +233,7 @@ This is the core analysis step. MethylSense identifies differentially methylated
 
 ```bash
 Rscript MethylSense_analysis.R \
-  --qs_file ./preprocessed/*_methylRaw.qs \
+  --qs_file ./preprocessed/*_methylRaw.qs2 \
   --sample_sheet ./example_data/sample_metadata_30.csv \
   --output_dir ./training \
   --window_file ./example_data/windows/windows_5kb.bed \
@@ -296,7 +300,7 @@ Before using a model for clinical diagnosis, evaluate its performance to select 
 # Find a trained model directory (pick one based on marker count)
 Rscript MethylSense_reviewer.R \
   --model_dir ./training/training_*/windows_5kb/rf/markers_5 \
-  --qs_file ./preprocessed/*_methylRaw.qs \
+  --qs_file ./preprocessed/*_methylRaw.qs2 \
   --sample_sheet ./example_data/sample_metadata_30.csv \
   --sample_id_column ID \
   --treatment_column Infection \
@@ -343,7 +347,7 @@ Rscript MethylSense_load_data.R \
 ```bash
 Rscript MethylSense_predict.R \
   --model_dir ./training/training_*/windows_5kb/rf/markers_5 \
-  --qs_file ./unknown_preprocessed/*_methylRaw.qs \
+  --qs_file ./unknown_preprocessed/*_methylRaw.qs2 \
   --output_dir ./unknown_predictions \
   --plots
 ```
@@ -583,7 +587,7 @@ Exploratory plots providing a landscape view of DMR results.
 </tr>
 </thead>
 <tbody>
-<tr><td style="padding: 8px; border-bottom: 1px solid #ddd;">MethylSense_load_data.R</td><td style="padding: 8px; border-bottom: 1px solid #ddd;">Preprocess BED files into methylKit format</td><td style="padding: 8px; border-bottom: 1px solid #ddd;">qs methylRawList object</td></tr>
+<tr><td style="padding: 8px; border-bottom: 1px solid #ddd;">MethylSense_load_data.R</td><td style="padding: 8px; border-bottom: 1px solid #ddd;">Preprocess BED files into methylKit format</td><td style="padding: 8px; border-bottom: 1px solid #ddd;">qs2 methylRawList object</td></tr>
 <tr><td style="padding: 8px; border-bottom: 1px solid #ddd;">MethylSense_analysis.R</td><td style="padding: 8px; border-bottom: 1px solid #ddd;">DMR detection and ML model training</td><td style="padding: 8px; border-bottom: 1px solid #ddd;">Trained models, DMR coordinates</td></tr>
 <tr><td style="padding: 8px; border-bottom: 1px solid #ddd;">MethylSense_predict.R</td><td style="padding: 8px; border-bottom: 1px solid #ddd;">Clinical diagnosis of new samples</td><td style="padding: 8px; border-bottom: 1px solid #ddd;">Predictions with confidence scores</td></tr>
 <tr style="border-bottom: 2px solid #333;"><td style="padding: 8px;">MethylSense_reviewer.R</td><td style="padding: 8px;">Clinical interpretation and reporting</td><td style="padding: 8px;">Evaluation reports and figures</td></tr>
@@ -701,7 +705,7 @@ Preprocesses raw BED files into methylKit objects for analysis.
 <tr style="border-bottom: 1px solid #ddd;"><td style="padding: 10px;">--species</td><td style="padding: 10px;">string</td><td style="padding: 10px;">required</td><td style="padding: 10px;">Species name (must match sample sheet)</td></tr>
 <tr style="border-bottom: 1px solid #ddd;"><td style="padding: 10px;">--sample_sheet</td><td style="padding: 10px;">file</td><td style="padding: 10px;">required</td><td style="padding: 10px;">Path to sample metadata (Excel or CSV)</td></tr>
 <tr style="border-bottom: 1px solid #ddd;"><td style="padding: 10px;">--bed_dir</td><td style="padding: 10px;">dir</td><td style="padding: 10px;">required</td><td style="padding: 10px;">Directory containing CpG BED files</td></tr>
-<tr style="border-bottom: 1px solid #ddd;"><td style="padding: 10px;">--output_dir</td><td style="padding: 10px;">dir</td><td style="padding: 10px;">required</td><td style="padding: 10px;">Output directory for processed .qs files</td></tr>
+<tr style="border-bottom: 1px solid #ddd;"><td style="padding: 10px;">--output_dir</td><td style="padding: 10px;">dir</td><td style="padding: 10px;">required</td><td style="padding: 10px;">Output directory for processed .qs2 files</td></tr>
 <tr style="border-bottom: 1px solid #ddd;"><td style="padding: 10px;">--assembly</td><td style="padding: 10px;">string</td><td style="padding: 10px;">auto</td><td style="padding: 10px;">Genome assembly name</td></tr>
 <tr style="border-bottom: 1px solid #ddd;"><td style="padding: 10px;">--cores</td><td style="padding: 10px;">int</td><td style="padding: 10px;">20</td><td style="padding: 10px;">Number of CPU cores for parallel processing</td></tr>
 <tr style="border-bottom: 1px solid #ddd;"><td style="padding: 10px;">--min_coverage</td><td style="padding: 10px;">int</td><td style="padding: 10px;">1</td><td style="padding: 10px;">Minimum read coverage per CpG site</td></tr>
@@ -805,7 +809,7 @@ Main analysis script for DMR detection and ML classifier training.
 </tr>
 </thead>
 <tbody>
-<tr><td style="padding: 10px; border-bottom: 1px solid #ddd;">--qs_file</td><td style="padding: 10px; border-bottom: 1px solid #ddd;">file</td><td style="padding: 10px; border-bottom: 1px solid #ddd;">required</td><td style="padding: 10px; border-bottom: 1px solid #ddd;">Path to preprocessed methylRawList .qs file</td></tr>
+<tr><td style="padding: 10px; border-bottom: 1px solid #ddd;">--qs_file</td><td style="padding: 10px; border-bottom: 1px solid #ddd;">file</td><td style="padding: 10px; border-bottom: 1px solid #ddd;">required</td><td style="padding: 10px; border-bottom: 1px solid #ddd;">Path to preprocessed methylRawList .qs2 file</td></tr>
 <tr><td style="padding: 10px; border-bottom: 1px solid #ddd;">--sample_sheet</td><td style="padding: 10px; border-bottom: 1px solid #ddd;">file</td><td style="padding: 10px; border-bottom: 1px solid #ddd;">—</td><td style="padding: 10px; border-bottom: 1px solid #ddd;">Sample metadata (Excel/CSV) for covariate adjustment</td></tr>
 <tr><td style="padding: 10px; border-bottom: 1px solid #ddd;">--output_dir</td><td style="padding: 10px; border-bottom: 1px solid #ddd;">dir</td><td style="padding: 10px; border-bottom: 1px solid #ddd;">required</td><td style="padding: 10px; border-bottom: 1px solid #ddd;">Output directory for results</td></tr>
 <tr><td style="padding: 10px; border-bottom: 1px solid #ddd;">--window_file</td><td style="padding: 10px; border-bottom: 1px solid #ddd;">file</td><td style="padding: 10px; border-bottom: 1px solid #ddd;">—</td><td style="padding: 10px; border-bottom: 1px solid #ddd;">Path to a single genomic window BED file (e.g., windows_5kb.bed)</td></tr>
@@ -954,7 +958,7 @@ Main analysis script for DMR detection and ML classifier training.
 
 ```bash
 Rscript MethylSense_analysis.R \
-  --qs_file ./preprocessed/Chicken_n124.qs \
+  --qs_file ./preprocessed/Chicken_n124.qs2 \
   --output_dir ./results/Chicken_Aspergillosis \
   --region_dir ./windowed_genomes \
   --group_names 'Control,Aspergillus_Infected' \
@@ -978,7 +982,7 @@ Rscript MethylSense_analysis.R \
 
 ```bash
 Rscript MethylSense_analysis.R \
-  --qs_file ./data.qs \
+  --qs_file ./data.qs2 \
   --output_dir ./quick_test \
   --group_names Control,Disease \
   --models fast \
@@ -1001,7 +1005,7 @@ Applies trained models to classify new samples.
 </tr>
 </thead>
 <tbody>
-<tr><td style="padding: 10px; border-bottom: 1px solid #ddd;">--qs_file</td><td style="padding: 10px; border-bottom: 1px solid #ddd;">file</td><td style="padding: 10px; border-bottom: 1px solid #ddd;">required</td><td style="padding: 10px; border-bottom: 1px solid #ddd;">Path to preprocessed samples (.qs)</td></tr>
+<tr><td style="padding: 10px; border-bottom: 1px solid #ddd;">--qs_file</td><td style="padding: 10px; border-bottom: 1px solid #ddd;">file</td><td style="padding: 10px; border-bottom: 1px solid #ddd;">required</td><td style="padding: 10px; border-bottom: 1px solid #ddd;">Path to preprocessed samples (.qs2)</td></tr>
 <tr><td style="padding: 10px; border-bottom: 1px solid #ddd;">--model_dir</td><td style="padding: 10px; border-bottom: 1px solid #ddd;">dir</td><td style="padding: 10px; border-bottom: 1px solid #ddd;">required</td><td style="padding: 10px; border-bottom: 1px solid #ddd;">Directory containing trained model</td></tr>
 <tr><td style="padding: 10px; border-bottom: 1px solid #ddd;">--output_dir</td><td style="padding: 10px; border-bottom: 1px solid #ddd;">dir</td><td style="padding: 10px; border-bottom: 1px solid #ddd;">required</td><td style="padding: 10px; border-bottom: 1px solid #ddd;">Output directory for predictions</td></tr>
 <tr><td style="padding: 10px; border-bottom: 1px solid #ddd;">--sample_ids</td><td style="padding: 10px; border-bottom: 1px solid #ddd;">string</td><td style="padding: 10px; border-bottom: 1px solid #ddd;">all</td><td style="padding: 10px; border-bottom: 1px solid #ddd;">Comma-separated sample IDs to predict</td></tr>
@@ -1017,7 +1021,7 @@ Applies trained models to classify new samples.
 
 ```bash
 Rscript MethylSense_predict.R \
-  --qs_file ./new_samples/samples.qs \
+  --qs_file ./new_samples/samples.qs2 \
   --model_dir ./results/rf/markers_10 \
   --output_dir ./predictions \
   --plots --confidence_threshold 0.8
@@ -1043,7 +1047,7 @@ Generates comprehensive model evaluation reports for publication.
 </thead>
 <tbody>
 <tr><td style="padding: 10px; border-bottom: 1px solid #ddd;">--model_dir</td><td style="padding: 10px; border-bottom: 1px solid #ddd;">dir</td><td style="padding: 10px; border-bottom: 1px solid #ddd;">required</td><td style="padding: 10px; border-bottom: 1px solid #ddd;">Path to trained model directory</td></tr>
-<tr><td style="padding: 10px; border-bottom: 1px solid #ddd;">--qs_file</td><td style="padding: 10px; border-bottom: 1px solid #ddd;">file</td><td style="padding: 10px; border-bottom: 1px solid #ddd;">required</td><td style="padding: 10px; border-bottom: 1px solid #ddd;">Path to methylRawList .qs file</td></tr>
+<tr><td style="padding: 10px; border-bottom: 1px solid #ddd;">--qs_file</td><td style="padding: 10px; border-bottom: 1px solid #ddd;">file</td><td style="padding: 10px; border-bottom: 1px solid #ddd;">required</td><td style="padding: 10px; border-bottom: 1px solid #ddd;">Path to methylRawList .qs2 file</td></tr>
 <tr><td style="padding: 10px; border-bottom: 1px solid #ddd;">--sample_sheet</td><td style="padding: 10px; border-bottom: 1px solid #ddd;">file</td><td style="padding: 10px; border-bottom: 1px solid #ddd;">required</td><td style="padding: 10px; border-bottom: 1px solid #ddd;">Path to sample metadata</td></tr>
 <tr><td style="padding: 10px; border-bottom: 1px solid #ddd;">--output_subdir</td><td style="padding: 10px; border-bottom: 1px solid #ddd;">string</td><td style="padding: 10px; border-bottom: 1px solid #ddd;">model_review</td><td style="padding: 10px; border-bottom: 1px solid #ddd;">Output subdirectory name</td></tr>
 <tr><td style="padding: 10px; border-bottom: 1px solid #ddd;">--model_name</td><td style="padding: 10px; border-bottom: 1px solid #ddd;">string</td><td style="padding: 10px; border-bottom: 1px solid #ddd;">auto</td><td style="padding: 10px; border-bottom: 1px solid #ddd;">Custom model name for report title</td></tr>
@@ -1170,7 +1174,7 @@ Generates comprehensive model evaluation reports for publication.
 ```bash
 Rscript MethylSense_reviewer.R \
   --model_dir ./results/svm/markers_35 \
-  --qs_file ./preprocessed/Chicken_n124.qs \
+  --qs_file ./preprocessed/Chicken_n124.qs2 \
   --sample_sheet ./AsperMerged_v3.xlsx \
   --model_name "Fast Model Diagnostic Test" \
   --covariate_cols "SEQUENCER,cfDNA_conc_ng_uL,number_of_reads,mapping_percentage,mean_coverage" \
@@ -1200,7 +1204,7 @@ Rscript MethylSense_reviewer.R \
 ```bash
 Rscript MethylSense_reviewer.R \
   --model_dir ./results/rf/markers_20 \
-  --qs_file ./data.qs \
+  --qs_file ./data.qs2 \
   --sample_sheet ./metadata.xlsx \
   --batch_column Platform \
   --storage_column StorageDays
@@ -1285,7 +1289,7 @@ Each repeat draws a **new random 60/40 stratified split**. The model is trained 
 ```bash
 # Standard MCCV with 10 repeats
 Rscript MethylSense_analysis.R \
-  --qs_file ./data.qs \
+  --qs_file ./data.qs2 \
   --output_dir ./results \
   --cv_repeats 10
 ```
@@ -1305,7 +1309,7 @@ The entire k-fold procedure can be **repeated N times** with different random se
 ```bash
 # Publication-quality nested CV: 10 folds × 5 repetitions = 50 evaluations
 Rscript MethylSense_analysis.R \
-  --qs_file ./data.qs \
+  --qs_file ./data.qs2 \
   --output_dir ./results \
   --cv_repeats 10 \
   --nested_cv \

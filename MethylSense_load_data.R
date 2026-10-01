@@ -7,8 +7,8 @@
 #          → methylKit methylRaw objects for downstream DMR and ML analysis
 #
 # Author: Markus Hodal Drag
-# Version: 6.0.0
-# Release Date: 2026-07-03
+# Version: 6.0.2
+# Release Date: 2026-10-01
 # GitHub: https://github.com/markusdrag/MethylSense
 #
 # Citation:
@@ -20,18 +20,35 @@
 #   https://doi.org/10.1128/jcm.01054-25
 # ================================================================================
 
-SCRIPT_VERSION <- "6.0.0"
-SCRIPT_DATE <- "2026-07-03"
+SCRIPT_VERSION <- "6.0.2"
+SCRIPT_DATE <- "2026-10-01"
 
 suppressPackageStartupMessages({
   library(optparse)
   library(readxl)
   library(methylKit)
   library(data.table)
-  library(qs)
+  library(qs2)
   library(dplyr)
   library(parallel)
 })
+
+cmd_args_qs <- commandArgs(trailingOnly = FALSE)
+file_arg_qs <- grep("^--file=", cmd_args_qs, value = TRUE)
+script_dir_qs <- if (length(file_arg_qs)) {
+  dirname(normalizePath(sub("^--file=", "", file_arg_qs[1]), mustWork = FALSE))
+} else {
+  getwd()
+}
+qs_io_candidates <- c(
+  file.path(script_dir_qs, "MethylSense_qs_io.R"),
+  file.path(script_dir_qs, "..", "MethylSense_qs_io.R")
+)
+qs_io_hit <- qs_io_candidates[file.exists(qs_io_candidates)]
+if (length(qs_io_hit) == 0L) {
+  stop("Cannot find MethylSense_qs_io.R next to this script or in the parent directory.")
+}
+source(normalizePath(qs_io_hit[1]))
 
 # ================================================================================
 # COMMAND LINE INTERFACE
@@ -577,10 +594,10 @@ outfile <- file.path(
   opt$output_dir,
   paste0(
     today, "_", gsub(" ", "_", opt$species),
-    "_n", length(meth_obj), "_methylRaw.qs"
+    "_n", length(meth_obj), "_methylRaw.qs2"
   )
 )
-qsave(meth_obj, outfile)
+qs2::qs_save(meth_obj, outfile)
 cat("methylRaw object: ", basename(outfile), "\n")
 
 summary_file <- file.path(

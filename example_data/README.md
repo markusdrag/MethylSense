@@ -28,8 +28,8 @@ This directory contains example Nanopore methylation data for testing and demons
 - `infected_*.CpG.bed` - Confirmed infection samples (n=5)
 
 ### Metadata
-- `sample_metadata.xlsx` - Sample sheet for MethylSense (Excel format)
-- `sample_metadata.csv` - Sample sheet (CSV format)
+- `sample_metadata.csv` - Sample sheet for the 15-sample set
+- `sample_metadata_30.csv` - Sample sheet for the 30-sample set used by the main README
 - `true_dmrs.csv` - True DMR coordinates used for simulation
 
 ## Quick Start
@@ -38,15 +38,15 @@ This directory contains example Nanopore methylation data for testing and demons
 # 1. Load and preprocess data
 Rscript MethylSense_load_data.R \
   --species "Gallus_gallus" \
-  --sample_sheet example_data/sample_metadata.xlsx \
+  --sample_sheet example_data/sample_metadata.csv \
   --bed_dir ./example_data \
   --output_dir ./example_output
 
 # 2. Train models
 Rscript MethylSense_analysis.R \
-  --qs_file ./example_output/*_methylRaw.qs \
+  --qs_file ./example_output/*_methylRaw.qs2 \
   --output_dir ./example_training \
-  --window_file windows_5kb.bed \
+  --window_file example_data/windows/windows_5kb.bed \
   --models rf,svm,xgboost \
   --group_names Control,Suspected,Infected \
   --positive_class Infected \
@@ -54,11 +54,13 @@ Rscript MethylSense_analysis.R \
 
 # 3. Evaluate models
 Rscript MethylSense_reviewer.R \
-  --model_dir ./example_training/models/rf_model/ \
-  --qs_file ./example_output/*_methylRaw.qs \
-  --sample_sheet example_data/sample_metadata.xlsx \
+  --model_dir ./example_training/example_training_*/windows_5kb/rf/markers_5 \
+  --qs_file ./example_output/*_methylRaw.qs2 \
+  --sample_sheet example_data/sample_metadata.csv \
   --output_dir ./example_report
 ```
+
+New files are written as `.qs2`. An existing `.qs` path is still valid input for `--qs_file` when the older `qs` package is installed.
 
 ## Expected Results
 

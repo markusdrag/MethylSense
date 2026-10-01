@@ -17,10 +17,12 @@
 # - Region size optimisation analysis
 #
 # Author: Markus Hodal Drag
-# Version: 6.0.1
-# Date: 2026-08-31
+# Version: 6.0.2
+# Date: 2026-10-01
 # GitHub: https://github.com/markusdrag/MethylSense
 #
+#   v6.0.2  - New methylation objects are written as .qs2. Existing .qs files
+#             still open when the legacy qs package is installed.
 #   v6.0.1  - FIX: heatmap/ridge group colours no longer collapse to "" for
 #             non-infection labels (e.g. Lean_SGLT2i, Obese) or NA sheet rows.
 #             Added --group_colors (Name=colour or positional). Blank labels
@@ -32,8 +34,8 @@
 #
 # ================================================================================
 
-SCRIPT_VERSION <- "6.0.1"
-SCRIPT_DATE <- "2026-08-31"
+SCRIPT_VERSION <- "6.0.2"
+SCRIPT_DATE <- "2026-10-01"
 
 # ================================================================================
 # LOAD REQUIRED LIBRARIES
@@ -41,7 +43,7 @@ SCRIPT_DATE <- "2026-08-31"
 
 suppressPackageStartupMessages({
   library(optparse)
-  library(qs)
+  library(qs2)
   library(methylKit)
   library(ggplot2)
   library(readxl)
@@ -69,6 +71,15 @@ script_dir_theme <- if (length(file_arg_theme)) {
   getwd()
 }
 source(file.path(script_dir_theme, "MethylSense_theme.R"))
+qs_io_candidates <- c(
+  file.path(script_dir_theme, "MethylSense_qs_io.R"),
+  file.path(script_dir_theme, "..", "MethylSense_qs_io.R")
+)
+qs_io_hit <- qs_io_candidates[file.exists(qs_io_candidates)]
+if (length(qs_io_hit) == 0L) {
+  stop("Cannot find MethylSense_qs_io.R next to this script or in the parent directory.")
+}
+source(normalizePath(qs_io_hit[1]))
 
 UNLABELLED_GROUP <- "Unlabelled"
 
@@ -468,9 +479,9 @@ for (region_size in region_sizes) {
   }
 
   # Same for meth files
-  meth_file_pattern_bp <- sprintf("united_meth_object_.*_%dbp_.*\\.qs", region_size)
-  meth_file_pattern_kb <- sprintf("united_meth_object_.*_%dkb_.*\\.qs", region_size / 1000)
-  meth_file_pattern_win <- sprintf("united_meth_object_windows_%dkb_.*\\.qs", region_size / 1000)
+  meth_file_pattern_bp <- sprintf("united_meth_object_.*_%dbp_.*\\.qs2?$", region_size)
+  meth_file_pattern_kb <- sprintf("united_meth_object_.*_%dkb_.*\\.qs2?$", region_size / 1000)
+  meth_file_pattern_win <- sprintf("united_meth_object_windows_%dkb_.*\\.qs2?$", region_size / 1000)
 
   meth_file <- list.files(opt$analysis_dir, pattern = meth_file_pattern_bp, full.names = TRUE)
   if (length(meth_file) == 0) {
@@ -487,7 +498,7 @@ for (region_size in region_sizes) {
 
   # Load data
   dmr_data <- read.csv(dmr_file[1])
-  meth_obj <- qread(meth_file[1])
+  meth_obj <- read_methylsense_qs(meth_file[1])
 
   total_mrs <- nrow(meth_obj)
   significant_dmrs <- sum(dmr_data$passes_current_qvalue_threshold, na.rm = TRUE)
@@ -591,9 +602,9 @@ for (region_size in region_sizes) {
     dmr_file <- list.files(opt$analysis_dir, pattern = dmr_file_pattern_win, full.names = TRUE)
   }
 
-  meth_file_pattern_bp <- sprintf("united_meth_object_.*_%dbp_.*\\.qs", region_size)
-  meth_file_pattern_kb <- sprintf("united_meth_object_.*_%dkb_.*\\.qs", region_size / 1000)
-  meth_file_pattern_win <- sprintf("united_meth_object_windows_%dkb_.*\\.qs", region_size / 1000)
+  meth_file_pattern_bp <- sprintf("united_meth_object_.*_%dbp_.*\\.qs2?$", region_size)
+  meth_file_pattern_kb <- sprintf("united_meth_object_.*_%dkb_.*\\.qs2?$", region_size / 1000)
+  meth_file_pattern_win <- sprintf("united_meth_object_windows_%dkb_.*\\.qs2?$", region_size / 1000)
 
   meth_file <- list.files(opt$analysis_dir, pattern = meth_file_pattern_bp, full.names = TRUE)
   if (length(meth_file) == 0) {
@@ -605,7 +616,7 @@ for (region_size in region_sizes) {
 
   if (length(dmr_file) > 0 && length(meth_file) > 0) {
     all_dmr_data[[as.character(region_size)]] <- read.csv(dmr_file[1])
-    all_meth_objects[[as.character(region_size)]] <- qread(meth_file[1])
+    all_meth_objects[[as.character(region_size)]] <- read_methylsense_qs(meth_file[1])
     cat(sprintf(
       "[OK] Loaded %d bp data: %d DMRs, %d MRs\n",
       region_size, nrow(all_dmr_data[[as.character(region_size)]]),

@@ -8,8 +8,8 @@
 # Usage: source this file at the top of any MethylSense script:
 #   source(file.path(script_dir, "MethylSense_theme.R"))
 #
-# Version: 6.0.0
-# Date: 2026-07-03
+# Version: 6.0.2
+# Date: 2026-10-01
 # ============================================================================
 
 if (!requireNamespace("hrbrthemes", quietly = TRUE)) {

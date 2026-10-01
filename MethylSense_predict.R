@@ -7,8 +7,8 @@
 #          v3: Enhanced with robust chromosome normalization and type handling
 #
 # Author: Markus Hodal Drag
-# Version: 6.0.0
-# Release Date: 2026-07-03
+# Version: 6.0.2
+# Release Date: 2026-10-01
 # GitHub: https://github.com/markusdrag/MethylSense
 #
 # Citation:
@@ -20,14 +20,14 @@
 #   https://doi.org/10.1128/jcm.01054-25
 # ================================================================================
 
-SCRIPT_VERSION <- "6.0.0"
-SCRIPT_DATE <- "2026-07-03"
+SCRIPT_VERSION <- "6.0.2"
+SCRIPT_DATE <- "2026-10-01"
 
 suppressPackageStartupMessages({
   library(optparse)
   library(methylKit)
   library(caret)
-  library(qs)
+  library(qs2)
   library(data.table)
   library(ggplot2)
   library(pheatmap)
@@ -37,6 +37,23 @@ suppressPackageStartupMessages({
   library(pROC)
 })
 
+cmd_args_qs <- commandArgs(trailingOnly = FALSE)
+file_arg_qs <- grep("^--file=", cmd_args_qs, value = TRUE)
+script_dir_qs <- if (length(file_arg_qs)) {
+  dirname(normalizePath(sub("^--file=", "", file_arg_qs[1]), mustWork = FALSE))
+} else {
+  getwd()
+}
+qs_io_candidates <- c(
+  file.path(script_dir_qs, "MethylSense_qs_io.R"),
+  file.path(script_dir_qs, "..", "MethylSense_qs_io.R")
+)
+qs_io_hit <- qs_io_candidates[file.exists(qs_io_candidates)]
+if (length(qs_io_hit) == 0L) {
+  stop("Cannot find MethylSense_qs_io.R next to this script or in the parent directory.")
+}
+source(normalizePath(qs_io_hit[1]))
+
 # ================================================================================
 # COMMAND LINE INTERFACE
 # ================================================================================
@@ -44,7 +61,7 @@ suppressPackageStartupMessages({
 option_list <- list(
   make_option(c("-q", "--qs_file"),
     type = "character",
-    help = "Path to methylRawList .qs file (preprocessed samples)",
+    help = "Path to a .qs2 methylRawList, or a legacy .qs file (preprocessed samples)",
     metavar = "FILE"
   ),
   make_option(c("-m", "--model_dir"),
@@ -118,11 +135,11 @@ opt <- tryCatch(
 if (is.null(opt$qs_file) || is.null(opt$model_dir) || is.null(opt$output_dir)) {
   cat("\n[ERROR] Missing required arguments\n\n")
   cat("Required:\n")
-  cat("  -q/--qs_file      : Path to .qs file\n")
+  cat("  -q/--qs_file      : Path to .qs2 file (legacy .qs also accepted)\n")
   cat("  -m/--model_dir    : Path to trained model directory\n")
   cat("  -o/--output_dir   : Output directory\n\n")
   cat("Example:\n")
-  cat("  Rscript script.R -q samples.qs -m model/ -o predictions/\n\n")
+  cat("  Rscript script.R -q samples.qs2 -m model/ -o predictions/\n\n")
   stop("Missing required arguments", call. = FALSE)
 }
 
@@ -308,7 +325,7 @@ start_load <- Sys.time()
 
 new_samples <- tryCatch(
   {
-    qread(opt$qs_file)
+    read_methylsense_qs(opt$qs_file)
   },
   error = function(e) {
     stop(paste("[ERROR] Failed to load samples:", e$message))

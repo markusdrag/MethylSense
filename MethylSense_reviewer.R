@@ -3,10 +3,12 @@
 # ============================================================================
 # Comprehensive Model Validation and Technical Quality Assessment
 # ============================================================================
-# VERSION: 6.0.0
-# DATE: 2026-07-03
+# VERSION: 6.0.2
+# DATE: 2026-10-01
 # GitHub: https://github.com/markusdrag/MethylSense
 # CHANGELOG:
+#   v6.0.2  - New methylation objects are written as .qs2. Existing .qs files
+#             still open when the legacy qs package is installed.
 #   v6.0.0  - RELEASE: Version reset to a clean 6.0.0 baseline (supersedes the
 #             inconsistent legacy 5.x tag history). Ships new sample-level MAPQ
 #             filtering in MethylSense_load_data.R (--mapq_column / --min_mapq).
@@ -691,8 +693,8 @@
 #   v6.3.2 - Fixed PCA/UMAP
 # ============================================================================
 
-SCRIPT_VERSION <- "6.0.0"
-SCRIPT_DATE <- "2026-07-03"
+SCRIPT_VERSION <- "6.0.2"
+SCRIPT_DATE <- "2026-10-01"
 
 # ================================================================================
 # METHYLSENSE GLOBAL THEME CONFIGURATION
@@ -969,7 +971,7 @@ opts <- list(
   ),
   make_option(c("-q", "--qs_file"),
     type = "character",
-    help = "Path to methylRawList .qs file [REQUIRED]"
+    help = "Path to a .qs2 methylRawList, or a legacy .qs file [REQUIRED]"
   ),
   make_option(c("-s", "--sample_sheet"),
     type = "character",
@@ -1257,7 +1259,7 @@ get_sig_colname <- function(corrected = TRUE) {
 log_section_start(2, "Loading R packages", 10)
 
 suppressPackageStartupMessages({
-  library(qs)
+  library(qs2)
   library(methylKit)
   library(readxl)
   library(dplyr)
@@ -1278,6 +1280,23 @@ suppressPackageStartupMessages({
   library(igraph)
   library(dendextend)
 })
+
+cmd_args_qs <- commandArgs(trailingOnly = FALSE)
+file_arg_qs <- grep("^--file=", cmd_args_qs, value = TRUE)
+script_dir_qs <- if (length(file_arg_qs)) {
+  dirname(normalizePath(sub("^--file=", "", file_arg_qs[1]), mustWork = FALSE))
+} else {
+  getwd()
+}
+qs_io_candidates <- c(
+  file.path(script_dir_qs, "MethylSense_qs_io.R"),
+  file.path(script_dir_qs, "..", "MethylSense_qs_io.R")
+)
+qs_io_hit <- qs_io_candidates[file.exists(qs_io_candidates)]
+if (length(qs_io_hit) == 0L) {
+  stop("Cannot find MethylSense_qs_io.R next to this script or in the parent directory.")
+}
+source(normalizePath(qs_io_hit[1]))
 
 cat("          [OK] Core packages loaded\n")
 
@@ -3073,7 +3092,7 @@ if (!file.exists(opt$sample_sheet)) stop("[ERROR] Sample sheet not found: ", opt
 
 # Load QS file
 cat("          Loading methylRawList...\n")
-meth_data <- qread(opt$qs_file)
+meth_data <- read_methylsense_qs(opt$qs_file)
 cat("          [OK] Loaded", length(meth_data), "samples\n")
 
 # Load sample sheet

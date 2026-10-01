@@ -5,8 +5,8 @@
 # ================================================================================
 #
 # Script Name: MethylSense_analysis.R
-# Version: 6.0.0 (Public Release)
-# Date: 2026-07-03
+# Version: 6.0.2 (Public Release)
+# Date: 2026-10-01
 # GitHub: https://github.com/markusdrag/MethylSense
 # Authors: Markus Hodal Drag, Christina Hvilsom, Louise Ladefoged Poulsen,
 #          Henrik Elvang Jensen, Stamatios Alan Tahas, Christoph Leineweber,
@@ -47,6 +47,10 @@
 # ================================================================================
 # VERSION HISTORY
 # ================================================================================
+# v6.0.2 (2026-10-01) - QS2 SERIALIZATION
+#   UPDATED: New methylation objects are written as .qs2
+#   UPDATED: Existing .qs files still open when the legacy qs package is installed
+#
 # v5.7.1 (2026-05-01) - CITATION UPDATE & OUTPUT_DIR FIX
 #   UPDATED: Citation updated from bioRxiv preprint to official JCM publication
 #   CITATION: Drag MH et al. J Clin Microbiol 0:e01054-25
@@ -208,8 +212,8 @@
 # ================================================================================
 
 # Script version for logging
-SCRIPT_VERSION <- "6.0.0"
-SCRIPT_DATE <- "2026-07-03"
+SCRIPT_VERSION <- "6.0.2"
+SCRIPT_DATE <- "2026-10-01"
 
 cat("\n")
 cat("================================================================================\n")
@@ -265,7 +269,7 @@ show_help <- function() {
   cat("================================================================================\n")
   cat("Required arguments:\n")
   cat("================================================================================\n")
-  cat("  --qs_file FILE        Path to methylRawList .qs file\n")
+  cat("  --qs_file FILE        Path to methylRawList .qs2 file (legacy .qs also accepted)\n")
   cat("  --output_dir DIR      Output directory for results\n")
   cat("\n")
   cat("================================================================================\n")
@@ -377,58 +381,58 @@ show_help <- function() {
   cat("================================================================================\n")
   cat("\n")
   cat("1. Basic analysis:\n")
-  cat("   Rscript MethylSense.R --qs_file data.qs --output_dir results/\n")
+  cat("   Rscript MethylSense.R --qs_file data.qs2 --output_dir results/\n")
   cat("\n")
   cat("2. With custom group names and colors (publication-ready):\n")
-  cat("   Rscript MethylSense.R --qs_file data.qs --output_dir results/ \\\n")
+  cat("   Rscript MethylSense.R --qs_file data.qs2 --output_dir results/ \\\n")
   cat("     --group_names Control,Infected \\\n")
   cat("     --group_colors '#4575b4,#d73027' \\\n")
   cat("     --positive_class Infected\n")
   cat("\n")
   cat("3. With 5-fold cross-validation:\n")
-  cat("   Rscript MethylSense.R --qs_file data.qs --output_dir results/ \\\n")
+  cat("   Rscript MethylSense.R --qs_file data.qs2 --output_dir results/ \\\n")
   cat("     --cv_repeats 5 --group_names Control,Disease\n")
   cat("\n")
   cat("4. Nested CV for publication (gold standard):\n")
-  cat("   Rscript MethylSense.R --qs_file data.qs --output_dir results/ \\\n")
+  cat("   Rscript MethylSense.R --qs_file data.qs2 --output_dir results/ \\\n")
   cat("     --cv_repeats 5 --nested_cv \\\n")
   cat("     --group_names Control,Infected \\\n")
   cat("     --group_colors blue,red\n")
   cat("\n")
   cat("5. With predefined train/test split:\n")
-  cat("   Rscript MethylSense.R --qs_file data.qs --output_dir results/ \\\n")
+  cat("   Rscript MethylSense.R --qs_file data.qs2 --output_dir results/ \\\n")
   cat("     --train_test_file splits.xlsx --cv_repeats 5\n")
   cat("\n")
   cat("6. Three-group comparison with custom colors:\n")
-  cat("   Rscript MethylSense.R --qs_file data.qs --output_dir results/ \\\n")
+  cat("   Rscript MethylSense.R --qs_file data.qs2 --output_dir results/ \\\n")
   cat("     --group_names Control,Mild,Severe \\\n")
   cat("     --group_colors '#4575b4,#fee090,#d73027'\n")
   cat("\n")
   cat("7. Fast biomarker models only:\n")
-  cat("   Rscript MethylSense.R --qs_file data.qs --output_dir results/ \\\n")
+  cat("   Rscript MethylSense.R --qs_file data.qs2 --output_dir results/ \\\n")
   cat("     --models biomarker --cv_repeats 5\n")
   cat("\n")
   cat("For detailed output structure: Rscript MethylSense.R --show_output\n")
   cat("For available models: Rscript MethylSense.R --list-models\n")
   cat("\n")
   cat("8. High-resolution PNG for publication:\n")
-  cat("   Rscript MethylSense.R --qs_file data.qs --output_dir results/ \\\n")
+  cat("   Rscript MethylSense.R --qs_file data.qs2 --output_dir results/ \\\n")
   cat("     --plot_format png --plot_dpi 600\n")
   cat("\n")
   cat("9. Vector graphics (SVG) for Nature journals:\n")
-  cat("   Rscript MethylSense.R --qs_file data.qs --output_dir results/ \\\n")
+  cat("   Rscript MethylSense.R --qs_file data.qs2 --output_dir results/ \\\n")
   cat("     --plot_format svg --plot_dpi 300\n")
   cat("\n")
   cat("10. All formats (PNG + JPEG + SVG):\n")
-  cat("    Rscript MethylSense.R --qs_file data.qs --output_dir results/ \\\n")
+  cat("    Rscript MethylSense.R --qs_file data.qs2 --output_dir results/ \\\n")
   cat("      --plot_format all --plot_dpi 300\n")
   cat("\n")
   cat("11. Multiple specific formats:\n")
-  cat("    Rscript MethylSense.R --qs_file data.qs --output_dir results/ \\\n")
+  cat("    Rscript MethylSense.R --qs_file data.qs2 --output_dir results/ \\\n")
   cat("      --plot_format 'png,svg' --plot_dpi 600\n")
   cat("\n")
   cat("12. Excluding sex chromosomes (recommended for safety):\n")
-  cat("    Rscript MethylSense.R --qs_file data.qs --output_dir results/ \\\n")
+  cat("    Rscript MethylSense.R --qs_file data.qs2 --output_dir results/ \\\n")
   cat("      --exclude_sex_chroms --group_names Control,Disease\n")
   cat("\n")
   cat("================================================================================\n")
@@ -542,7 +546,7 @@ show_output_structure <- function() {
   cat("|   +-- ALL_DMRs_complete_dataset_[region].csv\n")
   cat("|   |   # ALL detected DMRs (not filtered by significance)\n")
   cat("|   |\n")
-  cat("|   +-- united_meth_object_[region]_[timestamp].qs\n")
+  cat("|   +-- united_meth_object_[region]_[timestamp].qs2\n")
   cat("|   |   # United methylation object (can be large)\n")
   cat("|   |\n")
   cat("|   +-- united_meth_metadata_[region]_[timestamp].rds\n")
@@ -622,7 +626,7 @@ suppressPackageStartupMessages({
   library(data.table)
   library(ggplot2)
   library(reshape2)
-  library(qs)
+  library(qs2)
   library(parallel)
   library(doParallel)
   library(foreach)
@@ -659,6 +663,15 @@ script_dir_theme <- if (length(file_arg_theme)) {
   getwd()
 }
 source(file.path(script_dir_theme, "MethylSense_theme.R"))
+qs_io_candidates <- c(
+  file.path(script_dir_theme, "MethylSense_qs_io.R"),
+  file.path(script_dir_theme, "..", "MethylSense_qs_io.R")
+)
+qs_io_hit <- qs_io_candidates[file.exists(qs_io_candidates)]
+if (length(qs_io_hit) == 0L) {
+  stop("Cannot find MethylSense_qs_io.R next to this script or in the parent directory.")
+}
+source(normalizePath(qs_io_hit[1]))
 
 # NOTE: Reproducibility settings moved to after option parsing
 # so they can be controlled by --reproducible flag
@@ -2805,7 +2818,7 @@ option_list <- list(
     action = "store_true", default = FALSE,
     help = "Suppress detailed progress messages (less verbose output) [default: %default]"
   ),
-  make_option(c("--qs_file"), type = "character", help = "Path to .qs methylRawList object"),
+  make_option(c("--qs_file"), type = "character", help = "Path to a .qs2 methylRawList, or a legacy .qs file"),
   make_option(c("--sample_sheet"),
     type = "character", default = NULL,
     help = "Path to sample metadata file (Excel or CSV) for covariate adjustment"
@@ -8138,10 +8151,10 @@ cat("\n")
 # Load methylRawList - REVERTED TO USE NORMALIZED DATA CONSISTENTLY
 # ---------------------------
 log_msg(paste("[SYSTEM] Loading PROPER methylRawList from:", basename(opt$qs_file)))
-verbose_msg("Reading .qs file into memory...")
+verbose_msg("Reading methylation object into memory...")
 
 start_load <- Sys.time()
-meth_qread <- qread(opt$qs_file)
+meth_qread <- read_methylsense_qs(opt$qs_file)
 verbose_msg("[NORMALIZING] Normalising coverage using median method...")
 meth <- normalizeCoverage(meth_qread, method = "median")
 verbose_msg("[TARGET] Methylation data normalised!")
@@ -8480,7 +8493,7 @@ log_msg(paste(
 
 # Extract species name from filename or use strategy info
 if (opt$strategy == "traditional") {
-  species_string <- tolower(gsub(".*\\d{8}_(.*?)_n\\d+.*\\.qs$", "\\1", basename(opt$qs_file)))
+  species_string <- tolower(gsub(".*\\d{8}_(.*?)_n\\d+.*\\.qs2?$", "\\1", basename(opt$qs_file)))
   log_msg(paste("[DATA] Species detected:", species_string))
 } else {
   species_string <- "generated_windows"
@@ -9592,11 +9605,12 @@ for (region_idx in seq_along(region_data)) {
 
         # Create export filename based on region label and timestamp
         export_timestamp <- format(Sys.time(), "%Y%m%d_%H%M")
-        united_export_file <- file.path(opt$output_dir, paste0("united_meth_object_", reg_label, "_", export_timestamp, ".qs"))
+        united_export_file <- file.path(opt$output_dir, paste0("united_meth_object_", reg_label, "_", export_timestamp, ".qs2"))
 
-        # Save the united object (this preserves the methylBase S4 object with raw counts)
+        # Save the united object (this preserves the methylBase S4 object with raw counts).
+        # compress_level 1 is the qs2 equivalent of the old qs preset "fast".
         log_msg(paste("[SAVE] Exporting united methylation object to:", basename(united_export_file)))
-        qsave(united, united_export_file, preset = "fast")
+        qs2::qs_save(united, united_export_file, compress_level = 1L)
 
         # Verify the export and show column structure
         export_size_mb <- round(file.size(united_export_file) / 1024^2, 1)

@@ -3,8 +3,8 @@
 # ================================================================================
 # MethylSense Complete Package Installer
 # ================================================================================
-# Version: 6.0.0
-# Date: 2026-07-03
+# Version: 6.0.2
+# Date: 2026-10-01
 # Description: Installs all required R packages for the MethylSense workflow
 #              (load_data, analysis, predict, reviewer, general data overview)
 #
@@ -15,7 +15,7 @@
 
 cat("\n")
 cat("================================================================================\n")
-cat("  METHYLSENSE COMPLETE PACKAGE INSTALLER v1.0.0\n")
+cat("  METHYLSENSE COMPLETE PACKAGE INSTALLER v6.0.2\n")
 cat("================================================================================\n")
 cat("\n")
 cat("This script will install all required R packages for:\n")
@@ -41,7 +41,7 @@ core_packages <- c(
   "optparse", # Command-line argument parsing
   "data.table", # Fast data manipulation
   "dplyr", # Data manipulation
-  "qs" # Fast serialization for R objects
+  "qs2" # Fast serialization for new MethylSense objects (.qs2)
 )
 
 # Data loading packages (MethylSense_load_data.R)
@@ -220,6 +220,19 @@ cat(sprintf(
   sum(cran_success), length(all_cran_packages)
 ))
 
+# Legacy qs is optional. New files are .qs2. qs is only needed to open files
+# that were already saved as .qs. On R 4.6 and later, CRAN may refuse qs.
+cat("\n=== Optional: legacy qs package ===\n\n")
+cat("qs2 is required and is installed with the CRAN packages above.\n")
+cat("The older qs package is only needed to open existing .qs files.\n")
+cat("A failed qs install does not block the rest of MethylSense.\n\n")
+legacy_qs_ok <- isTRUE(install_cran_package("qs")) &&
+  requireNamespace("qs", quietly = TRUE)
+if (!isTRUE(legacy_qs_ok)) {
+  cat("\nNOTE: legacy package 'qs' was not installed.\n")
+  cat("      New .qs2 files still work. Existing .qs files will not open until qs is installed.\n")
+}
+
 # ================================================================================
 # INSTALL BIOCONDUCTOR PACKAGES
 # ================================================================================
@@ -328,14 +341,16 @@ if (length(missing_packages) == 0) {
   cat("  ✓ ALL PACKAGES INSTALLED SUCCESSFULLY!\n")
   cat("================================================================================\n\n")
   cat("You can now run the MethylSense workflow:\n\n")
+  cat("  New methylation objects are written as .qs2.\n")
+  cat("  An existing .qs path is still valid input when the legacy qs package is installed.\n\n")
   cat("  1. Load data:\n")
-  cat("     Rscript MethylSense_load_data.R --bed_dir <dir> --output_file <file>.qs\n\n")
+  cat("     Rscript MethylSense_load_data.R --bed_dir <dir> --output_file <file>.qs2\n\n")
   cat("  2. Run analysis:\n")
-  cat("     Rscript MethylSense_analysis.R --qs_file <file>.qs --window_file <bed>\n\n")
+  cat("     Rscript MethylSense_analysis.R --qs_file <file>.qs2 --window_file <bed>\n\n")
   cat("  3. Evaluate model (optional):\n")
-  cat("     Rscript MethylSense_reviewer.R --model_dir <dir> --qs_file <file>.qs\n\n")
+  cat("     Rscript MethylSense_reviewer.R --model_dir <dir> --qs_file <file>.qs2\n\n")
   cat("  4. Predict new samples:\n")
-  cat("     Rscript MethylSense_predict.R --model_dir <dir> --new_data <file>.qs\n\n")
+  cat("     Rscript MethylSense_predict.R --model_dir <dir> --new_data <file>.qs2\n\n")
 } else {
   cat("\n")
   cat("================================================================================\n")
