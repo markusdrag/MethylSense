@@ -6291,19 +6291,28 @@ plot_nested_cv_results <- function(cv_result_regular, cv_result_nested,
   # ===== PLOT 2: Nested CV ROC Curves (all outer folds) =====
   tryCatch(
     {
-      if (!is.null(cv_result_nested$fold_roc_data)) {
-        # Combine ROC data from all folds
-        all_roc_data <- do.call(rbind, lapply(1:length(cv_result_nested$fold_roc_data), function(i) {
+      # Binary nested CV stores per-fold ROC points. Multi-class runs leave
+      # this list empty. 1:length(list()) is c(1, 0) in R, so skip before rbind.
+      if (!is.null(cv_result_nested$fold_roc_data) &&
+          length(cv_result_nested$fold_roc_data) > 0) {
+        roc_list <- lapply(seq_along(cv_result_nested$fold_roc_data), function(i) {
           fold_data <- cv_result_nested$fold_roc_data[[i]]
           if (!is.null(fold_data)) {
             fold_data$fold <- paste("Fold", i)
-            fold_data$auc <- cv_result_nested$fold_results$auc[i]
+            n_auc <- length(cv_result_nested$fold_results$auc)
+            if (n_auc >= i) {
+              fold_data$auc <- cv_result_nested$fold_results$auc[i]
+            }
             return(fold_data)
           }
           return(NULL)
-        }))
+        })
+        roc_list <- Filter(Negate(is.null), roc_list)
 
-        if (!is.null(all_roc_data) && nrow(all_roc_data) > 0) {
+        if (length(roc_list) > 0) {
+          all_roc_data <- do.call(rbind, roc_list)
+
+          if (!is.null(all_roc_data) && nrow(all_roc_data) > 0) {
           p_nested_roc <- ggplot(
             all_roc_data,
             aes(
@@ -6348,6 +6357,7 @@ plot_nested_cv_results <- function(cv_result_regular, cv_result_nested,
           plot_files$nested_roc <- nested_roc_file
 
           log_msg("[PLOT] Nested ROC curves created")
+          }
         }
       }
     },
