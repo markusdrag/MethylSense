@@ -7,8 +7,8 @@
 #          → methylKit methylRaw objects for downstream DMR and ML analysis
 #
 # Author: Markus Hodal Drag
-# Version: 6.0.2
-# Release Date: 2026-10-01
+# Version: 6.0.3
+# Release Date: 2026-11-10
 # GitHub: https://github.com/markusdrag/MethylSense
 #
 # Citation:
@@ -20,8 +20,8 @@
 #   https://doi.org/10.1128/jcm.01054-25
 # ================================================================================
 
-SCRIPT_VERSION <- "6.0.2"
-SCRIPT_DATE <- "2026-10-01"
+SCRIPT_VERSION <- "6.0.3"
+SCRIPT_DATE <- "2026-11-10"
 
 suppressPackageStartupMessages({
   library(optparse)
@@ -369,18 +369,15 @@ if (length(files_to_convert) == 0) {
           return(list(status = "ERROR", msg = "Insufficient columns", sample = sample_id, sites = 0))
         }
 
-        if (ncol(bed) == 18) {
+        if (ncol(bed) %in% c(13L, 18L)) {
           bed$V10 <- as.numeric(bed$V10)
           bed$V12 <- as.numeric(bed$V12)
           bed$V13 <- as.numeric(bed$V13)
-          unmeth_col <- bed$V12
-          meth_col <- bed$V13
-        } else if (ncol(bed) == 13) {
-          bed$V10 <- as.numeric(bed$V10)
-          bed$V11 <- as.numeric(bed$V11)
-          bed$V13 <- as.numeric(bed$V13)
-          unmeth_col <- bed$V11
-          meth_col <- bed$V13
+          # modkit bedMethyl columns 10, 12 and 13.
+          # 10 Nvalid_cov, 11 modified fraction (not a count), 12 Nmod, 13 Ncanonical.
+          # https://github.com/nanoporetech/modkit#description-of-bedmethyl-output
+          meth_col <- bed$V12
+          unmeth_col <- bed$V13
         } else {
           return(list(status = "ERROR", msg = paste("Unexpected columns:", ncol(bed)), sample = sample_id, sites = 0))
         }
