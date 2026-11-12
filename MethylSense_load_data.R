@@ -3,12 +3,13 @@
 # ================================================================================
 #                    METHYLSENSE DATA PREPROCESSING PIPELINE
 # ================================================================================
-# Purpose: Convert raw bedFileOrg (13/18 col) → standardized bedFile (8 col)
-#          → methylKit methylRaw objects for downstream DMR and ML analysis
+# Purpose: Read modkit bedMethyl files (13 or 18 columns) directly into methylKit
+#          methylRaw objects for downstream DMR and ML analysis, then verify the
+#          saved object against the raw files site by site.
 #
 # Author: Markus Hodal Drag
-# Version: 6.0.3
-# Release Date: 2026-11-10
+# Version: 6.1.0
+# Release Date: 2026-11-12
 # GitHub: https://github.com/markusdrag/MethylSense
 #
 # Citation:
@@ -18,10 +19,26 @@
 #   Aspergillus fumigatus infection in chickens using host cell-free DNA
 #   methylation and Nanopore sequencing. J Clin Microbiol 0:e01054-25.
 #   https://doi.org/10.1128/jcm.01054-25
+#
+# Version history:
+#   6.1.0 (2026-11-12)
+#     - bedMethyl files are read directly. No intermediate _CpG_nonD.txt files are
+#       written or read, so stale converted files can no longer enter a run.
+#     - Methylated count is modkit column 12 (Nmod), unmethylated count is column
+#       13 (Ncanonical). Each file must confirm this through its own column 11
+#       (percent or fraction modified), or the run stops.
+#     - Built-in QC: the saved .qs2 is read back from disk and compared with every
+#       site of every raw bedMethyl file. Results go to _load_QC.csv and
+#       _load_QC_report.txt. A failing object is renamed _QC_FAILED.qs2.
+#     - Rows are filtered to one modification code (--mod_code, default auto).
+#     - Duplicate sites, missing files and unreadable files stop the run.
+#     - --force_convert is accepted and ignored.
+#     - Script paths that contain spaces now work.
+#   6.0.3 (2026-11-10) Column 12 and 13 mapping fixed for 13 and 18 column files.
 # ================================================================================
 
-SCRIPT_VERSION <- "6.0.3"
-SCRIPT_DATE <- "2026-11-10"
+SCRIPT_VERSION <- "6.1.0"
+SCRIPT_DATE <- "2026-11-12"
 
 suppressPackageStartupMessages({
   library(optparse)
@@ -29,14 +46,15 @@ suppressPackageStartupMessages({
   library(methylKit)
   library(data.table)
   library(qs2)
-  library(dplyr)
   library(parallel)
 })
 
 cmd_args_qs <- commandArgs(trailingOnly = FALSE)
 file_arg_qs <- grep("^--file=", cmd_args_qs, value = TRUE)
 script_dir_qs <- if (length(file_arg_qs)) {
-  dirname(normalizePath(sub("^--file=", "", file_arg_qs[1]), mustWork = FALSE))
+  # Rscript writes spaces in the script path as "~+~".
+  script_path_qs <- gsub("~+~", " ", sub("^--file=", "", file_arg_qs[1]), fixed = TRUE)
+  dirname(normalizePath(script_path_qs, mustWork = FALSE))
 } else {
   getwd()
 }
@@ -62,17 +80,17 @@ option_list <- list(
   ),
   make_option(c("-i", "--sample_sheet"),
     type = "character",
-    help = "Path to sample sheet (Excel format)",
+    help = "Path to sample sheet (Excel or CSV). Needs Species, ID, bedFileOrg and treatMethylkit columns",
     metavar = "FILE"
   ),
   make_option(c("-b", "--bed_dir"),
     type = "character",
-    help = "Directory containing BED files",
+    help = "Directory containing the modkit bedMethyl files named in bedFileOrg",
     metavar = "DIRECTORY"
   ),
   make_option(c("-o", "--output_dir"),
     type = "character",
-    help = "Output directory for processed objects",
+    help = "Output directory for processed objects and QC files",
     metavar = "DIRECTORY"
   ),
   make_option(c("-a", "--assembly"),
@@ -90,8 +108,18 @@ option_list <- list(
   make_option(c("-m", "--min_coverage"),
     type = "integer",
     default = 1,
-    help = "Minimum coverage per CpG [default: %default]",
+    help = "Minimum coverage (Nmod + Ncanonical) per CpG [default: %default]",
     metavar = "INTEGER"
+  ),
+  make_option("--mod_code",
+    type = "character",
+    default = "auto",
+    help = paste(
+      "Modification code in bedMethyl column 4 to load. 'auto' uses the only code",
+      "in the file, or 'm' (5mC) when several codes are present. Use 'C' for files",
+      "made with --combine-mods. [default: %default]"
+    ),
+    metavar = "CHARACTER"
   ),
   make_option("--mapq_column",
     type = "character",
@@ -99,7 +127,7 @@ option_list <- list(
     help = paste(
       "Name of the sample-sheet column holding each sample's mean mapping",
       "quality (MAPQ). Combined with --min_mapq, samples below the threshold",
-      "are dropped before any BED conversion. [default: no MAPQ filtering]"
+      "are dropped before any file is read. [default: no MAPQ filtering]"
     ),
     metavar = "CHARACTER"
   ),
@@ -113,10 +141,15 @@ option_list <- list(
     ),
     metavar = "NUMERIC"
   ),
+  make_option("--allow_missing",
+    action = "store_true",
+    default = FALSE,
+    help = "Continue without samples whose bedMethyl file is missing (they are listed in the QC report)"
+  ),
   make_option("--force_convert",
     action = "store_true",
     default = FALSE,
-    help = "Force re-conversion of existing bedFile files"
+    help = "Ignored since 6.1.0, which writes no converted files. Kept so older job scripts still run"
   ),
   make_option("--no_parallel",
     action = "store_true",
@@ -128,25 +161,26 @@ option_list <- list(
 parser <- OptionParser(
   usage = "%prog [options]",
   option_list = option_list,
-  description = "\nMethylSense Data Preprocessing Pipeline\nPrepares methylation data for DMR analysis and ML classification",
-  epilogue = "Example:\n  Rscript methylsense_preprocess.R --species 'Minipig' --sample_sheet samples.xlsx --bed_dir ./beds --output_dir ./processed"
+  description = "\nMethylSense Data Preprocessing Pipeline\nReads modkit bedMethyl files into a methylRawList and verifies it against the raw files",
+  epilogue = "Example:\n  Rscript MethylSense_load_data.R --species 'Minipig' --sample_sheet samples.xlsx --bed_dir ./beds --output_dir ./processed"
 )
 
 opt <- parse_args(parser)
 
-# Validate required arguments
 if (is.null(opt$species) || is.null(opt$sample_sheet) ||
   is.null(opt$bed_dir) || is.null(opt$output_dir)) {
   print_help(parser)
   stop("\nError: Missing required arguments.\n", call. = FALSE)
 }
 
-# Validate MAPQ filtering arguments (both must be supplied together)
 if (!is.null(opt$min_mapq) && is.null(opt$mapq_column)) {
   stop("\nError: --min_mapq requires --mapq_column so the script knows which sample-sheet column to read.\n", call. = FALSE)
 }
 if (!is.null(opt$mapq_column) && is.null(opt$min_mapq)) {
   stop("\nError: --mapq_column requires --min_mapq (the minimum mean mapping quality to keep).\n", call. = FALSE)
+}
+if (is.na(opt$min_coverage) || opt$min_coverage < 1) {
+  stop("\nError: --min_coverage must be 1 or higher.\n", call. = FALSE)
 }
 
 # ================================================================================
@@ -202,25 +236,132 @@ filter_samples_by_mapq <- function(sheet, mapq_column = NULL, min_mapq = NULL) {
   sheet_filtered
 }
 
-# Create output directory
+# ================================================================================
+# HELPERS: BEDMETHYL READING
+# ================================================================================
+# modkit bedMethyl columns (https://github.com/nanoporetech/modkit#description-of-bedmethyl-output):
+#   1 chrom, 2 start (0-based), 3 end, 4 modification code, 5 score, 6 strand,
+#   7-9 display fields, 10 Nvalid_cov, 11 fraction modified (Nmod / Nvalid_cov,
+#   written as 0-100 by older modkit and 0-1 by newer modkit), 12 Nmod,
+#   13 Ncanonical, 14 Nother_mod, 15 Ndelete, 16 Nfail, 17 Ndiff, 18 Nnocall.
+
+bed_stream_cmd <- function(path) {
+  src <- if (grepl("\\.gz$", path, ignore.case = TRUE)) {
+    paste("gzip -dc", shQuote(path))
+  } else {
+    paste("cat", shQuote(path))
+  }
+  paste(src, "| tr ' ' '\\t'")
+}
+
+read_bedmethyl <- function(path) {
+  probe <- fread(path, nrows = 1, header = FALSE, sep = "\t", showProgress = FALSE)
+  space_separated <- FALSE
+  # modkit before 0.2 separated columns 10 to 18 with spaces.
+  if (ncol(probe) == 10L && is.character(probe[[10]]) && grepl(" ", probe[[10]][1])) {
+    space_separated <- TRUE
+    probe <- fread(cmd = paste(bed_stream_cmd(path), "| head -n 1"), header = FALSE, sep = "\t", showProgress = FALSE)
+  }
+
+  n_col <- ncol(probe)
+  if (!n_col %in% c(13L, 18L)) {
+    stop(sprintf("expected a modkit bedMethyl file with 13 or 18 columns, found %d", n_col))
+  }
+  if (!is.numeric(probe[[2]]) || !is.numeric(probe[[10]]) || !is.numeric(probe[[12]]) || !is.numeric(probe[[13]])) {
+    stop("columns 2, 10, 12 and 13 are not numeric. The first row may be a header, which modkit does not write")
+  }
+
+  sel <- c(1, 2, 3, 4, 6, 10, 11, 12, 13, if (n_col == 18L) 14)
+  nms <- c("chr", "start", "end", "code", "strand", "n_valid", "col11", "n_mod", "n_canonical", if (n_col == 18L) "n_other")
+
+  bed <- if (space_separated) {
+    fread(cmd = bed_stream_cmd(path), header = FALSE, sep = "\t", select = sel, col.names = nms, showProgress = FALSE)
+  } else {
+    fread(path, header = FALSE, sep = "\t", select = sel, col.names = nms, showProgress = FALSE)
+  }
+  if (n_col == 13L) bed[, n_other := NA_integer_]
+
+  bed[, chr := as.character(chr)]
+  bed[, code := as.character(code)]
+  bed[, strand := as.character(strand)]
+  for (col in c("start", "end", "n_valid", "n_mod", "n_canonical")) {
+    if (anyNA(bed[[col]])) stop(sprintf("column %s has missing or non-numeric values", col))
+  }
+
+  list(bed = bed, n_col = n_col, space_separated = space_separated)
+}
+
+choose_mod_code <- function(codes, requested) {
+  codes <- sort(unique(codes))
+  if (!identical(requested, "auto")) {
+    if (!requested %in% codes) {
+      stop(sprintf("--mod_code %s is not in column 4. Codes in file: %s", requested, paste(codes, collapse = ", ")))
+    }
+    return(requested)
+  }
+  if (length(codes) == 1L) return(codes)
+  if ("m" %in% codes) return("m")
+  stop(sprintf(
+    "column 4 holds several modification codes (%s). Set --mod_code, for example m for 5mC",
+    paste(codes, collapse = ", ")
+  ))
+}
+
+# Column 11 is modkit's own statement of the modified fraction. In modkit output it
+# equals column 12 / column 10 exactly, which proves column 12 is the modified count.
+# Simulated files may store a true level in column 11 instead. These are accepted
+# with a warning when column 11 is still closer to the modified than to the
+# unmodified fraction at nearly every site. A swapped file is closer at almost none.
+DIRECTION_EXACT_MIN <- 0.99
+DIRECTION_CLOSER_MIN <- 0.95
+
+check_direction <- function(bed) {
+  scale <- if (max(bed$col11, na.rm = TRUE) > 1 + 1e-9) 100 else 1
+  informative <- bed[n_valid > 0 & n_mod != n_canonical]
+  if (nrow(informative) == 0L) {
+    return(list(scale = scale, agree_mod = NA_real_, agree_can = NA_real_, closer_mod = NA_real_, n_informative = 0L))
+  }
+  tol <- 0.0051 * scale
+  dist_mod <- abs(informative$col11 - scale * informative$n_mod / informative$n_valid)
+  dist_can <- abs(informative$col11 - scale * informative$n_canonical / informative$n_valid)
+  list(
+    scale = scale,
+    agree_mod = mean(dist_mod <= tol),
+    agree_can = mean(dist_can <= tol),
+    closer_mod = mean(dist_mod < dist_can),
+    n_informative = nrow(informative)
+  )
+}
+
+direction_confirmed <- function(agree_mod, closer_mod) {
+  is.na(agree_mod) || agree_mod >= DIRECTION_EXACT_MIN || closer_mod >= DIRECTION_CLOSER_MIN
+}
+
+methylkit_strand <- function(strand) {
+  fifelse(strand == "-", "-", "+")
+}
+
+# ================================================================================
+# SETUP
+# ================================================================================
+
 if (!dir.exists(opt$output_dir)) {
   dir.create(opt$output_dir, recursive = TRUE)
 }
 
 today <- format(Sys.Date(), "%Y%m%d")
 
-# ================================================================================
-# CREATE ASSEMBLY NAME - CRITICAL: DO THIS BEFORE ANY OUTPUT
-# ================================================================================
-
 if (is.null(opt$assembly) || opt$assembly == "") {
-  # Auto-generate from species name
   species_clean <- gsub(" ", "_", opt$species)
   species_clean <- gsub("[^A-Za-z0-9_]", "", species_clean)
   assembly_name <- paste0(species_clean, "_assembly")
 } else {
-  # Use user-provided assembly name
   assembly_name <- opt$assembly
+}
+
+use_cores <- if (opt$no_parallel) 1L else max(1L, opt$cores)
+run_parallel <- function(x, fun) {
+  if (use_cores == 1L) lapply(x, fun) else mclapply(x, fun, mc.cores = use_cores, mc.preschedule = FALSE)
 }
 
 # ================================================================================
@@ -243,6 +384,7 @@ cat(paste("Version:", SCRIPT_VERSION, "|", "Release Date:", SCRIPT_DATE, "\n"))
 cat(paste("Start Time:", format(Sys.time(), "%Y-%m-%d %H:%M:%S"), "\n"))
 cat(paste("Working Directory:", getwd(), "\n"))
 cat(paste("R Version:", R.version.string, "\n"))
+cat(paste("methylKit Version:", as.character(packageVersion("methylKit")), "\n"))
 cat("\n")
 cat("Please cite:\n")
 cat("  Drag MH, Hvilsom C, Poulsen LL, Jensen HE, Tahas SA, Leineweber C,\n")
@@ -253,25 +395,24 @@ cat("  methylation and Nanopore sequencing. J Clin Microbiol 0:e01054-25.\n")
 cat("  https://doi.org/10.1128/jcm.01054-25\n")
 cat("================================================================================\n\n")
 
-# ================================================================================
-# CONFIGURATION SUMMARY
-# ================================================================================
-
 cat("Configuration:\n")
 cat("  Species:            ", opt$species, "\n")
 cat("  Assembly:           ", assembly_name, "\n")
 cat("  Sample Sheet:       ", basename(opt$sample_sheet), "\n")
 cat("  BED Directory:      ", opt$bed_dir, "\n")
 cat("  Output Directory:   ", opt$output_dir, "\n")
-cat("  CPU Cores:          ", opt$cores, "\n")
-cat("  Min Coverage:       ", opt$min_coverage, " reads per CpG\n")
+cat("  CPU Cores:          ", use_cores, "\n")
+cat("  Min Coverage:       ", opt$min_coverage, " reads per CpG (Nmod + Ncanonical)\n")
+cat("  Modification code:  ", opt$mod_code, "\n")
 if (!is.null(opt$mapq_column) && !is.null(opt$min_mapq)) {
   cat("  MAPQ Filter:         keep", opt$mapq_column, ">=", opt$min_mapq, "\n")
 } else {
   cat("  MAPQ Filter:         Disabled\n")
 }
-cat("  Parallel Mode:      ", ifelse(opt$no_parallel, "Disabled", "Enabled"), "\n")
-cat("  Force Convert:      ", ifelse(opt$force_convert, "Yes", "No"), "\n")
+cat("  Missing files:      ", ifelse(opt$allow_missing, "Skipped and reported", "Stop the run"), "\n")
+if (opt$force_convert) {
+  cat("  Note: --force_convert is ignored. Version 6.1.0 reads bedMethyl files directly.\n")
+}
 cat("\n")
 
 # ================================================================================
@@ -285,9 +426,9 @@ cat("===========================================================================
 sheet_all <- tryCatch(
   {
     if (grepl("\\.csv$", opt$sample_sheet, ignore.case = TRUE)) {
-      read.csv(opt$sample_sheet, stringsAsFactors = FALSE)
+      read.csv(opt$sample_sheet, stringsAsFactors = FALSE, check.names = FALSE, colClasses = "character")
     } else {
-      read_xlsx(opt$sample_sheet)
+      as.data.frame(read_xlsx(opt$sample_sheet, col_types = "text"))
     }
   },
   error = function(e) {
@@ -295,7 +436,13 @@ sheet_all <- tryCatch(
   }
 )
 
-sheet <- sheet_all %>% filter(Species == opt$species)
+required_cols <- c("Species", "ID", "bedFileOrg", "treatMethylkit")
+missing_cols <- setdiff(required_cols, colnames(sheet_all))
+if (length(missing_cols) > 0) {
+  stop("Sample sheet is missing column(s): ", paste(missing_cols, collapse = ", "), call. = FALSE)
+}
+
+sheet <- sheet_all[!is.na(sheet_all$Species) & sheet_all$Species == opt$species, , drop = FALSE]
 
 if (nrow(sheet) == 0) {
   stop("No samples found for species: ", opt$species, "\n",
@@ -307,271 +454,218 @@ if (nrow(sheet) == 0) {
 cat("Sample Sheet Summary:\n")
 cat("  Total samples in sheet: ", nrow(sheet_all), "\n")
 cat("  Samples for", opt$species, ":", nrow(sheet), "\n")
-cat("  Columns: bedFileOrg (input) -> bedFile (output)\n")
+cat("  Input column:            bedFileOrg (modkit bedMethyl)\n")
+if ("bedFile" %in% colnames(sheet)) {
+  cat("  Note: the bedFile column is no longer used. No converted files are read or written.\n")
+}
 cat("\n")
 
-# Optional sample-level MAPQ filtering (keeps samples with MAPQ >= --min_mapq)
 n_samples_pre_mapq <- nrow(sheet)
 sheet <- filter_samples_by_mapq(sheet, opt$mapq_column, opt$min_mapq)
 
-original_bed_files <- file.path(opt$bed_dir, sheet$bedFileOrg)
-converted_files <- file.path(opt$bed_dir, sheet$bedFile)
-treatment_vector <- sheet$treatMethylkit
-
-# Validate file existence
-missing_originals <- original_bed_files[!file.exists(original_bed_files)]
-existing_originals <- original_bed_files[file.exists(original_bed_files)]
-
-if (length(missing_originals) > 0) {
-  cat("Warning: Missing", length(missing_originals), "original bedFileOrg files:\n")
-  for (missing in head(missing_originals, 3)) {
-    cat("  -", basename(missing), "\n")
-  }
-  if (length(missing_originals) > 3) {
-    cat("  - ... and", length(missing_originals) - 3, "more\n")
-  }
-  cat("\n")
+sheet$ID <- as.character(sheet$ID)
+dup_ids <- unique(sheet$ID[duplicated(sheet$ID)])
+if (length(dup_ids) > 0) {
+  stop("Duplicate sample IDs in sample sheet: ", paste(dup_ids, collapse = ", "), call. = FALSE)
 }
+treat_raw <- trimws(as.character(sheet$treatMethylkit))
+treat_blank <- is.na(treat_raw) | treat_raw == "" | toupper(treat_raw) == "NA"
+treat_num <- suppressWarnings(as.numeric(treat_raw))
+treat_bad <- !treat_blank & (is.na(treat_num) | treat_num != round(treat_num))
+if (any(treat_bad)) {
+  stop("treatMethylkit must be a whole number, or NA for unknown samples. Check: ",
+    paste(sheet$ID[treat_bad], collapse = ", "),
+    call. = FALSE
+  )
+}
+treat_num[treat_blank] <- NA
+sheet$treatMethylkit <- as.integer(treat_num)
+if (any(treat_blank)) {
+  cat("  Note:", sum(treat_blank), "sample(s) have no treatMethylkit value and are stored with NA treatment\n\n")
+}
+
+bed_paths <- file.path(opt$bed_dir, sheet$bedFileOrg)
+file_found <- file.exists(bed_paths)
+missing_samples <- sheet$ID[!file_found]
 
 cat("File Status:\n")
-cat("  Found:   ", length(existing_originals), "bedFileOrg files\n")
-cat("  Missing: ", length(missing_originals), "bedFileOrg files\n")
+cat("  Found:   ", sum(file_found), "bedMethyl files\n")
+cat("  Missing: ", sum(!file_found), "bedMethyl files\n")
+if (any(!file_found)) {
+  for (k in head(which(!file_found), 10)) cat("    -", sheet$ID[k], ":", bed_paths[k], "\n")
+  if (sum(!file_found) > 10) cat("    - ... and", sum(!file_found) - 10, "more\n")
+  if (!opt$allow_missing) {
+    stop("Missing bedMethyl file(s). Fix the sample sheet or rerun with --allow_missing.", call. = FALSE)
+  }
+}
 cat("\n")
 
+sheet <- sheet[file_found, , drop = FALSE]
+bed_paths <- bed_paths[file_found]
+if (nrow(sheet) == 0) stop("No bedMethyl files found.", call. = FALSE)
+
 # ================================================================================
-# STEP 2: BED FILE CONVERSION
+# STEP 2: READ BEDMETHYL FILES INTO METHYLRAW OBJECTS
 # ================================================================================
 
 cat("================================================================================\n")
-cat("Step 2: Converting BED files to standard format\n")
+cat("Step 2: Reading bedMethyl files into methylKit objects\n")
 cat("================================================================================\n\n")
+cat("Methylated reads = column 12 (Nmod), unmethylated reads = column 13 (Ncanonical)\n")
+cat("Reading", nrow(sheet), "files...\n\n")
 
-files_to_convert <- which(file.exists(original_bed_files) &
-  (!file.exists(converted_files) | opt$force_convert))
+build_sample <- function(i) {
+  path <- bed_paths[i]
+  sample_id <- sheet$ID[i]
+  tryCatch(
+    {
+      rd <- read_bedmethyl(path)
+      bed <- rd$bed
+      rows_in_file <- nrow(bed)
 
-if (length(files_to_convert) == 0) {
-  cat("All bedFile files already exist. Skipping conversion.\n")
-  cat("Use --force_convert to regenerate all files.\n\n")
-} else {
-  cat("Converting", length(files_to_convert), "files...\n")
-  cat("Format: bedFileOrg (13 or 18 columns) -> bedFile (8 columns)\n\n")
+      code_used <- choose_mod_code(bed$code, opt$mod_code)
+      rows_other_code <- sum(bed$code != code_used)
+      bed <- bed[code == code_used]
 
-  convert_function <- function(i) {
-    infile <- original_bed_files[i]
-    outfile <- converted_files[i]
-    sample_id <- sheet$ID[i]
-
-    tryCatch(
-      {
-        bed <- fread(infile, sep = "\t", header = FALSE, showProgress = FALSE)
-
-        if (ncol(bed) < 10) {
-          return(list(status = "ERROR", msg = "Insufficient columns", sample = sample_id, sites = 0))
-        }
-
-        if (ncol(bed) %in% c(13L, 18L)) {
-          bed$V10 <- as.numeric(bed$V10)
-          bed$V12 <- as.numeric(bed$V12)
-          bed$V13 <- as.numeric(bed$V13)
-          # modkit bedMethyl columns 10, 12 and 13.
-          # 10 Nvalid_cov, 11 modified fraction (not a count), 12 Nmod, 13 Ncanonical.
-          # https://github.com/nanoporetech/modkit#description-of-bedmethyl-output
-          meth_col <- bed$V12
-          unmeth_col <- bed$V13
-        } else {
-          return(list(status = "ERROR", msg = paste("Unexpected columns:", ncol(bed)), sample = sample_id, sites = 0))
-        }
-
-        bed <- bed[!is.na(bed$V10) & !is.na(unmeth_col) & !is.na(meth_col) & bed$V10 >= opt$min_coverage]
-
-        new <- data.table(
-          chrBase = paste(bed$V1, bed$V2, sep = "."),
-          chr = as.character(bed$V1),
-          start = as.integer(bed$V2),
-          stop = as.integer(bed$V2) + 1,
-          strand = as.character(bed$V6),
-          coverage = as.integer(bed$V10),
-          freqC = round(pmin(100, (meth_col / bed$V10) * 100), 3),
-          freqT = round(pmin(100, (unmeth_col / bed$V10) * 100), 3)
-        )
-
-        new <- new[coverage > 0 & freqC >= 0 & freqC <= 100 & freqT >= 0 & freqT <= 100]
-        new <- new[!duplicated(new$chrBase)]
-
-        fwrite(new, outfile, sep = "\t", col.names = TRUE, quote = FALSE)
-
-        return(list(status = "SUCCESS", msg = "OK", sample = sample_id, sites = nrow(new)))
-      },
-      error = function(e) {
-        return(list(status = "ERROR", msg = e$message, sample = sample_id, sites = 0))
+      dirn <- check_direction(bed)
+      if (!direction_confirmed(dirn$agree_mod, dirn$closer_mod)) {
+        stop(sprintf(
+          paste(
+            "column 11 does not match Nmod / Nvalid_cov (exact on %.2f%% of informative sites,",
+            "closer to Nmod than to Ncanonical on %.2f%%). Column 12 may not be the modified count,",
+            "so the methylation direction cannot be confirmed"
+          ),
+          100 * dirn$agree_mod, 100 * dirn$closer_mod
+        ))
       }
-    )
-  }
 
-  if (opt$no_parallel) {
-    results <- lapply(files_to_convert, convert_function)
-  } else {
-    results <- mclapply(files_to_convert, convert_function, mc.cores = opt$cores)
-  }
+      if (rd$n_col == 18L) {
+        count_identity <- mean(bed$n_mod + bed$n_canonical + bed$n_other == bed$n_valid)
+        n_other_total <- sum(as.numeric(bed$n_other))
+      } else {
+        count_identity <- mean(bed$n_mod + bed$n_canonical <= bed$n_valid)
+        n_other_total <- NA_real_
+      }
+      if (count_identity < 0.999) {
+        stop(sprintf("Nmod + Ncanonical + Nother_mod equals Nvalid_cov on only %.2f%% of rows", 100 * count_identity))
+      }
 
-  success_count <- sum(sapply(results, function(x) x$status == "SUCCESS"))
-  error_count <- sum(sapply(results, function(x) x$status == "ERROR"))
+      rows_unstranded <- sum(!bed$strand %in% c("+", "-"))
+      bed[, strand := methylkit_strand(strand)]
+      bed[, coverage := n_mod + n_canonical]
+      rows_zero_coverage <- sum(bed$coverage == 0)
+      rows_below_min <- sum(bed$coverage > 0 & bed$coverage < opt$min_coverage)
+      bed <- bed[coverage >= opt$min_coverage]
+      if (nrow(bed) == 0L) stop("no sites left after the coverage filter")
 
-  cat("\nConversion Summary:\n")
-  cat("  Success: ", success_count, "/", length(results), " files\n")
-  cat("  Failed:  ", error_count, "/", length(results), " files\n\n")
+      dups <- bed[, .N, by = .(chr, start, strand)][N > 1L]
+      if (nrow(dups) > 0L) {
+        stop(sprintf(
+          "%d site(s) occur more than once for code %s, for example %s:%d (%s). The file may be concatenated or merged",
+          nrow(dups), code_used, dups$chr[1], dups$start[1], dups$strand[1]
+        ))
+      }
 
-  if (success_count > 0) {
-    cat("Sample Details (first 5):\n")
-    for (result in head(results[sapply(results, function(x) x$status == "SUCCESS")], 5)) {
-      cat(sprintf("  %-20s %15s CpG sites\n", result$sample, format(result$sites, big.mark = ",")))
-    }
-    if (success_count > 5) cat("  ... and", success_count - 5, "more\n")
-    cat("\n")
-  }
+      df <- data.frame(
+        chr = bed$chr,
+        start = as.integer(bed$start),
+        end = as.integer(bed$start) + 1L,
+        strand = bed$strand,
+        coverage = as.integer(bed$coverage),
+        numCs = as.integer(bed$n_mod),
+        numTs = as.integer(bed$n_canonical),
+        stringsAsFactors = FALSE
+      )
+      df <- df[order(df$chr, df$start, df$end), ]
+      row.names(df) <- NULL
 
-  if (error_count > 0) {
-    cat("Errors:\n")
-    for (result in results[sapply(results, function(x) x$status == "ERROR")]) {
-      cat("  ", result$sample, ":", result$msg, "\n")
-    }
-    cat("\n")
-  }
+      obj <- new("methylRaw", df,
+        sample.id = sample_id,
+        assembly = assembly_name,
+        context = "CpG",
+        resolution = "base"
+      )
+
+      qc <- data.table(
+        sample = sample_id,
+        bed_file = basename(path),
+        n_columns = rd$n_col,
+        space_separated = rd$space_separated,
+        rows_in_file = rows_in_file,
+        mod_code = code_used,
+        rows_other_code = rows_other_code,
+        col11_scale = ifelse(dirn$scale == 100, "percent", "fraction"),
+        informative_sites = dirn$n_informative,
+        col11_agrees_with_Nmod = round(dirn$agree_mod, 6),
+        col11_agrees_with_Ncanonical = round(dirn$agree_can, 6),
+        col11_closer_to_Nmod = round(dirn$closer_mod, 6),
+        count_identity = round(count_identity, 6),
+        n_other_mod_total = n_other_total,
+        rows_unstranded = rows_unstranded,
+        rows_zero_coverage = rows_zero_coverage,
+        rows_below_min_coverage = rows_below_min,
+        sites_loaded = nrow(df),
+        median_coverage = median(df$coverage),
+        pct_sites_cov5 = round(100 * mean(df$coverage >= 5), 3),
+        pct_plus_strand = round(100 * mean(df$strand == "+"), 3),
+        mean_meth_pct = round(100 * sum(as.numeric(df$numCs)) / sum(as.numeric(df$coverage)), 3)
+      )
+      list(status = "OK", obj = obj, qc = qc)
+    },
+    error = function(e) list(status = "ERROR", sample = sample_id, file = path, msg = conditionMessage(e))
+  )
 }
 
-# ================================================================================
-# STEP 3: CREATE METHYLRAW OBJECTS
-# ================================================================================
+built <- run_parallel(seq_len(nrow(sheet)), build_sample)
 
-cat("================================================================================\n")
-cat("Step 3: Creating methylKit objects\n")
-cat("================================================================================\n\n")
-
-existing_converted <- converted_files[file.exists(converted_files)]
-existing_indices <- which(file.exists(converted_files))
-existing_treatment <- treatment_vector[existing_indices]
-existing_sample_ids <- sheet$ID[existing_indices]
-
-if (length(existing_converted) == 0) {
-  stop("No converted bedFile files available for loading!", call. = FALSE)
+failed <- vapply(built, function(x) !is.list(x) || !identical(x$status, "OK"), logical(1))
+if (any(failed)) {
+  cat("Failed to read", sum(failed), "file(s):\n")
+  for (k in which(failed)) {
+    x <- built[[k]]
+    msg <- if (is.list(x)) x$msg else as.character(x)
+    cat("  ", sheet$ID[k], ":", msg, "\n")
+  }
+  stop("bedMethyl reading failed. No object was written.", call. = FALSE)
 }
 
-cat("Loading", length(existing_converted), "samples into methylKit...\n")
-cat("Assembly:", assembly_name, "\n")
-cat("Context:  CpG\n")
-cat("Min Cov: ", opt$min_coverage, "\n\n")
+build_qc <- rbindlist(lapply(built, `[[`, "qc"))
+objs <- lapply(built, `[[`, "obj")
+rm(built)
+invisible(gc())
 
-file_list <- as.list(existing_converted)
-sample_list <- as.list(as.character(existing_sample_ids))
+meth_obj <- new("methylRawList", objs, treatment = as.integer(sheet$treatMethylkit))
+rm(objs)
+invisible(gc())
 
-meth_obj <- tryCatch(
-  {
-    methylKit::methRead(
-      file_list,
-      sample.id = sample_list,
-      assembly = assembly_name,
-      treatment = as.integer(existing_treatment),
-      mincov = opt$min_coverage,
-      resolution = "base",
-      pipeline = list(
-        fraction = FALSE,
-        chr.col = 2,
-        start.col = 3,
-        end.col = 4,
-        coverage.col = 6,
-        strand.col = 5,
-        freqC.col = 7
-      )
-    )
-  },
-  error = function(e) {
-    cat("Primary method failed, using fallback...\n")
-    cat("Error:", e$message, "\n\n")
-
-    meth_list <- list()
-    successful_treatments <- c()
-    successful_sample_ids <- c()
-
-    for (i in seq_along(existing_converted)) {
-      file_path <- existing_converted[i]
-      sample_id <- existing_sample_ids[i]
-      treatment_val <- existing_treatment[i]
-
-      tryCatch(
-        {
-          dt <- fread(file_path, sep = "\t", header = TRUE, showProgress = FALSE)
-          dt <- dt[dt$coverage >= opt$min_coverage]
-          dt <- dt[complete.cases(dt)]
-          dt <- dt[dt$coverage > 0 & dt$freqC >= 0 & dt$freqC <= 100 & dt$freqT >= 0 & dt$freqT <= 100]
-          dt <- dt[!duplicated(dt$chrBase)]
-
-          if (nrow(dt) == 0) stop("No valid CpG sites")
-
-          methyl_data <- data.frame(
-            chr = as.character(dt$chr),
-            start = as.integer(dt$start),
-            end = as.integer(dt$stop),
-            strand = as.character(dt$strand),
-            coverage = as.integer(dt$coverage),
-            numCs = as.integer(round(dt$coverage * dt$freqC / 100)),
-            numTs = as.integer(round(dt$coverage * dt$freqT / 100)),
-            stringsAsFactors = FALSE
-          )
-
-          methyl_data <- methyl_data[methyl_data$coverage > 0 &
-            methyl_data$numCs >= 0 &
-            methyl_data$numTs >= 0 &
-            (methyl_data$numCs + methyl_data$numTs) <= methyl_data$coverage * 1.1, ]
-
-          if (nrow(methyl_data) == 0) stop("No valid data")
-
-          meth_obj_single <- new("methylRaw",
-            methyl_data,
-            sample.id = as.character(sample_id),
-            assembly = assembly_name,
-            context = "CpG",
-            resolution = "base"
-          )
-
-          meth_list <- append(meth_list, list(meth_obj_single))
-          successful_treatments <- c(successful_treatments, treatment_val)
-          successful_sample_ids <- c(successful_sample_ids, sample_id)
-
-          cat("  ", sample_id, ":", format(nrow(meth_obj_single), big.mark = ","), "sites\n")
-        },
-        error = function(e) {
-          cat("  ", sample_id, ": FAILED -", e$message, "\n")
-        }
-      )
-    }
-
-    if (length(meth_list) == 0) {
-      stop("All creation methods failed!", call. = FALSE)
-    }
-
-    new("methylRawList", meth_list, treatment = as.integer(successful_treatments))
-  }
-)
-
+for (k in seq_len(nrow(build_qc))) {
+  cat(sprintf(
+    "  %-24s %12s CpG sites   code %s   mean methylation %6.2f%%\n",
+    build_qc$sample[k], format(build_qc$sites_loaded[k], big.mark = ","),
+    build_qc$mod_code[k], build_qc$mean_meth_pct[k]
+  ))
+}
 cat("\nObject created successfully!\n\n")
 
 # ================================================================================
-# STEP 4: SUMMARY STATISTICS
+# STEP 3: SUMMARY STATISTICS
 # ================================================================================
 
 cat("================================================================================\n")
-cat("Step 4: Summary statistics\n")
+cat("Step 3: Summary statistics\n")
 cat("================================================================================\n\n")
 
 actual_treatment <- getTreatment(meth_obj)
 sample_sizes <- sapply(meth_obj, nrow)
+treatment_table <- table(actual_treatment, useNA = "ifany")
+treatment_text <- paste(ifelse(is.na(names(treatment_table)), "NA", names(treatment_table)), "=",
+  as.integer(treatment_table),
+  collapse = ", "
+)
 
 cat("Dataset Overview:\n")
 cat("  Total samples:     ", length(meth_obj), "\n")
-cat("  Treatment groups:  ", paste(names(table(actual_treatment)), "=",
-  table(actual_treatment),
-  collapse = ", "
-), "\n\n")
+cat("  Treatment groups:  ", treatment_text, "\n\n")
 
 cat("CpG Sites per Sample:\n")
 cat("  Minimum:           ", format(min(sample_sizes), big.mark = ","), "\n")
@@ -580,30 +674,187 @@ cat("  Mean:              ", format(round(mean(sample_sizes)), big.mark = ","), 
 cat("  Median:            ", format(round(median(sample_sizes)), big.mark = ","), "\n\n")
 
 # ================================================================================
-# STEP 5: SAVE OUTPUTS
+# STEP 4: SAVE OUTPUTS
 # ================================================================================
 
 cat("================================================================================\n")
-cat("Step 5: Saving processed data\n")
+cat("Step 4: Saving processed data\n")
 cat("================================================================================\n\n")
 
-outfile <- file.path(
-  opt$output_dir,
-  paste0(
-    today, "_", gsub(" ", "_", opt$species),
-    "_n", length(meth_obj), "_methylRaw.qs2"
-  )
-)
+file_prefix <- paste0(today, "_", gsub(" ", "_", opt$species))
+outfile <- file.path(opt$output_dir, paste0(file_prefix, "_n", length(meth_obj), "_methylRaw.qs2"))
 qs2::qs_save(meth_obj, outfile)
-cat("methylRaw object: ", basename(outfile), "\n")
+cat("methylRaw object: ", basename(outfile), "\n\n")
 
-summary_file <- file.path(
-  opt$output_dir,
-  paste0(
-    today, "_", gsub(" ", "_", opt$species),
-    "_preprocessing_summary.txt"
-  )
+expected_ids <- sheet$ID
+expected_treatment <- as.integer(sheet$treatMethylkit)
+rm(meth_obj)
+invisible(gc())
+
+# ================================================================================
+# STEP 5: QC OF THE SAVED OBJECT AGAINST THE RAW BEDMETHYL FILES
+# ================================================================================
+
+cat("================================================================================\n")
+cat("Step 5: QC of the saved object against the raw bedMethyl files\n")
+cat("================================================================================\n\n")
+
+reloaded <- read_methylsense_qs(outfile)
+
+object_checks <- c(
+  is_methylRawList = methods::is(reloaded, "methylRawList"),
+  sample_count = length(reloaded) == length(expected_ids),
+  sample_ids_in_order = identical(as.character(getSampleID(reloaded)), expected_ids),
+  treatment_in_order = identical(as.integer(getTreatment(reloaded)), expected_treatment)
 )
+
+verify_sample <- function(k) {
+  tryCatch(
+    {
+      got <- as.data.table(getData(reloaded[[k]]))
+      got[, chr := as.character(chr)]
+      want_code <- build_qc$mod_code[k]
+
+      raw <- read_bedmethyl(bed_paths[k])$bed
+      raw <- raw[code == want_code & (n_mod + n_canonical) >= opt$min_coverage]
+      raw <- raw[, .(chr, start, strand = methylkit_strand(strand), n_mod, n_canonical)]
+
+      m <- merge(got, raw, by = c("chr", "start", "strand"), all = TRUE)
+      in_both <- m[!is.na(numCs) & !is.na(n_mod)]
+      informative <- in_both[n_mod != n_canonical]
+
+      data.table(
+        sample = build_qc$sample[k],
+        qc_sample_id_matches = identical(getSampleID(reloaded[[k]]), build_qc$sample[k]),
+        qc_sites_in_object = nrow(got),
+        qc_sites_expected_from_bed = nrow(raw),
+        qc_sites_only_in_object = sum(is.na(m$n_mod)),
+        qc_sites_only_in_bed = sum(is.na(m$numCs)),
+        qc_end_is_start_plus_1 = mean(got$end == got$start + 1L),
+        qc_coverage_is_numCs_plus_numTs = mean(got$coverage == got$numCs + got$numTs),
+        qc_numCs_equals_Nmod = mean(in_both$numCs == in_both$n_mod),
+        qc_numTs_equals_Ncanonical = mean(in_both$numTs == in_both$n_canonical),
+        qc_informative_sites = nrow(informative),
+        qc_informative_swapped = sum(informative$numCs == informative$n_canonical & informative$numTs == informative$n_mod),
+        qc_mean_meth_bed_pct = round(100 * sum(as.numeric(raw$n_mod)) / sum(as.numeric(raw$n_mod + raw$n_canonical)), 3),
+        qc_mean_meth_object_pct = round(100 * sum(as.numeric(got$numCs)) / sum(as.numeric(got$coverage)), 3),
+        qc_error = NA_character_
+      )
+    },
+    error = function(e) data.table(sample = build_qc$sample[k], qc_error = conditionMessage(e))
+  )
+}
+
+verify_qc <- rbindlist(run_parallel(seq_len(nrow(build_qc)), verify_sample), fill = TRUE)
+qc <- merge(build_qc, verify_qc, by = "sample", sort = FALSE)
+qc <- qc[match(build_qc$sample, qc$sample)]
+
+fail_reason <- function(r) {
+  why <- character(0)
+  if (!is.na(r$qc_error)) return(paste("QC error:", r$qc_error))
+  if (!isTRUE(r$qc_sample_id_matches)) why <- c(why, "sample ID differs in saved object")
+  if (!direction_confirmed(r$col11_agrees_with_Nmod, r$col11_closer_to_Nmod)) why <- c(why, "column 11 does not confirm column 12 as modified")
+  if (r$count_identity < 0.999) why <- c(why, "count columns do not add up to Nvalid_cov")
+  if (r$qc_sites_only_in_object > 0) why <- c(why, "sites in object that are not in the bedMethyl file")
+  if (r$qc_sites_only_in_bed > 0) why <- c(why, "bedMethyl sites missing from object")
+  if (r$qc_sites_in_object != r$sites_loaded) why <- c(why, "site count changed after saving")
+  if (r$qc_end_is_start_plus_1 < 1) why <- c(why, "end is not start + 1")
+  if (r$qc_coverage_is_numCs_plus_numTs < 1) why <- c(why, "coverage is not numCs + numTs")
+  if (r$qc_numCs_equals_Nmod < 1) why <- c(why, "numCs differs from Nmod")
+  if (r$qc_numTs_equals_Ncanonical < 1) why <- c(why, "numTs differs from Ncanonical")
+  if (r$qc_informative_swapped > 0) why <- c(why, "methylated and unmethylated counts swapped")
+  paste(why, collapse = "; ")
+}
+
+warn_reason <- function(r, cohort_median, cohort_mad) {
+  why <- character(0)
+  if (!r$mod_code %in% c("C", "m")) why <- c(why, sprintf("code %s is not 5mC (m) or combined C", r$mod_code))
+  if (r$rows_other_code > 0) why <- c(why, sprintf("%s rows with other codes skipped", format(r$rows_other_code, big.mark = ",")))
+  if (!is.na(r$n_other_mod_total) && r$n_other_mod_total > 0) why <- c(why, "Nother_mod > 0, so other modifications were left out of coverage")
+  if (r$rows_unstranded > 0) why <- c(why, "unstranded rows were stored as + strand")
+  if (is.na(r$col11_agrees_with_Nmod)) why <- c(why, "no informative sites to confirm direction")
+  if (!is.na(r$col11_agrees_with_Nmod) && r$col11_agrees_with_Nmod < DIRECTION_EXACT_MIN) {
+    why <- c(why, sprintf(
+      "column 11 is not exactly Nmod / Nvalid_cov (exact on %.1f%% of sites) but is closer to Nmod on %.2f%%, as in simulated files",
+      100 * r$col11_agrees_with_Nmod, 100 * r$col11_closer_to_Nmod
+    ))
+  }
+  if (!is.na(cohort_mad) && cohort_mad > 0 && abs(r$mean_meth_pct - cohort_median) > 4 * cohort_mad) {
+    why <- c(why, sprintf("mean methylation %.2f%% is far from the cohort median %.2f%%", r$mean_meth_pct, cohort_median))
+  }
+  paste(why, collapse = "; ")
+}
+
+cohort_median <- median(qc$mean_meth_pct)
+cohort_mad <- if (nrow(qc) >= 5) mad(qc$mean_meth_pct) else NA_real_
+qc[, qc_fail_reason := vapply(seq_len(.N), function(k) fail_reason(qc[k]), character(1))]
+qc[, qc_warning := vapply(seq_len(.N), function(k) warn_reason(qc[k], cohort_median, cohort_mad), character(1))]
+qc[, qc_status := fifelse(nzchar(qc_fail_reason), "FAIL", fifelse(nzchar(qc_warning), "WARN", "PASS"))]
+
+all_pass <- all(object_checks) && !any(qc$qc_status == "FAIL")
+qc_csv <- file.path(opt$output_dir, paste0(file_prefix, "_load_QC.csv"))
+qc_txt <- file.path(opt$output_dir, paste0(file_prefix, "_load_QC_report.txt"))
+fwrite(qc, qc_csv)
+
+final_outfile <- outfile
+if (!all_pass) {
+  final_outfile <- sub("\\.qs2$", "_QC_FAILED.qs2", outfile)
+  invisible(file.rename(outfile, final_outfile))
+}
+
+report <- c(
+  "================================================================================",
+  "MethylSense load QC report",
+  "================================================================================",
+  paste0("Generated:        ", format(Sys.time(), "%Y-%m-%d %H:%M:%S")),
+  paste0("Loader version:   ", SCRIPT_VERSION),
+  paste0("Object:           ", basename(final_outfile)),
+  paste0("Overall result:   ", ifelse(all_pass, "PASS", "FAIL")),
+  "",
+  "What is checked:",
+  "  Column 11 of every bedMethyl file is modkit's own modified fraction. It must",
+  "  equal column 12 / column 10, which confirms column 12 as the methylated count.",
+  "  Files where column 11 is only closer to column 12 than to column 13 (simulated",
+  "  data) pass with a warning.",
+  "  The saved .qs2 is read back from disk. Every site is matched to the raw file",
+  "  by chromosome, start and strand, and numCs must equal column 12 and numTs must",
+  "  equal column 13 at every site.",
+  "",
+  "Object checks:",
+  paste0("  ", names(object_checks), ": ", ifelse(object_checks, "OK", "FAILED")),
+  "",
+  "Samples:",
+  sprintf(
+    "  %-24s %-4s %12s sites  meth %6.2f%%  col11 = Nmod on %7.3f%%  swapped %d",
+    qc$sample, qc$qc_status, format(qc$sites_loaded, big.mark = ","),
+    qc$mean_meth_pct, 100 * qc$col11_agrees_with_Nmod, as.integer(qc$qc_informative_swapped)
+  ),
+  ""
+)
+if (any(qc$qc_status == "FAIL")) {
+  report <- c(report, "Failures:", paste0("  ", qc$sample[qc$qc_status == "FAIL"], ": ", qc$qc_fail_reason[qc$qc_status == "FAIL"]), "")
+}
+if (any(nzchar(qc$qc_warning))) {
+  report <- c(report, "Warnings:", paste0("  ", qc$sample[nzchar(qc$qc_warning)], ": ", qc$qc_warning[nzchar(qc$qc_warning)]), "")
+}
+if (length(missing_samples) > 0) {
+  report <- c(report, "Samples skipped because the bedMethyl file was missing:", paste0("  ", missing_samples), "")
+}
+report <- c(report, "================================================================================")
+writeLines(report, qc_txt)
+
+cat(paste(report[-(1:3)], collapse = "\n"), "\n\n")
+cat("QC table:          ", basename(qc_csv), "\n")
+cat("QC report:         ", basename(qc_txt), "\n\n")
+
+if (!all_pass) {
+  stop("Load QC failed. The object was renamed to ", basename(final_outfile),
+    ". See ", basename(qc_txt), ".",
+    call. = FALSE
+  )
+}
+
+summary_file <- file.path(opt$output_dir, paste0(file_prefix, "_preprocessing_summary.txt"))
 writeLines(c(
   "================================================================================",
   "MethylSense data preprocessing summary",
@@ -612,28 +863,28 @@ writeLines(c(
   paste0("Version:                ", SCRIPT_VERSION),
   paste0("Species:                ", opt$species),
   paste0("Assembly:               ", assembly_name),
-  paste0("Total samples:          ", length(meth_obj)),
-  paste0("Treatment groups:       ", paste(names(table(actual_treatment)), "=",
-    table(actual_treatment),
-    collapse = ", "
-  )),
+  paste0("Total samples:          ", length(expected_ids)),
+  paste0("Treatment groups:       ", treatment_text),
   paste0("Min CpG sites:          ", format(min(sample_sizes), big.mark = ",")),
   paste0("Max CpG sites:          ", format(max(sample_sizes), big.mark = ",")),
   paste0("Mean CpG sites:         ", format(round(mean(sample_sizes)), big.mark = ",")),
   paste0("Median CpG sites:       ", format(round(median(sample_sizes)), big.mark = ",")),
   paste0("Min coverage filter:    ", opt$min_coverage),
+  paste0("Modification code:      ", paste(unique(qc$mod_code), collapse = ", ")),
   paste0(
     "MAPQ filter:            ",
     if (!is.null(opt$mapq_column) && !is.null(opt$min_mapq)) {
       paste0(
         opt$mapq_column, " >= ", opt$min_mapq,
-        " (", n_samples_pre_mapq, " -> ", length(meth_obj), " samples)"
+        " (", n_samples_pre_mapq, " -> ", length(expected_ids), " samples)"
       )
     } else {
       "none"
     }
   ),
-  paste0("Output file:            ", basename(outfile)),
+  paste0("Load QC:                ", ifelse(any(qc$qc_status == "WARN"), "PASS with warnings", "PASS")),
+  paste0("Output file:            ", basename(final_outfile)),
+  paste0("QC report:              ", basename(qc_txt)),
   "================================================================================",
   "",
   "Ready for downstream analysis:",
