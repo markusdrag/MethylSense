@@ -10,7 +10,7 @@
 
 [![License: AFL-3.0](https://img.shields.io/badge/Licence-AFL--3.0-blue.svg)](https://opensource.org/licenses/AFL-3.0)
 [![R](https://img.shields.io/badge/R-%3E%3D4.0-blue.svg)](https://www.r-project.org/)
-[![Version](https://img.shields.io/badge/version-6.1.0-brightgreen.svg)](https://github.com/markusdrag/MethylSense)
+[![Version](https://img.shields.io/badge/version-6.1.4-brightgreen.svg)](https://github.com/markusdrag/MethylSense)
 
 </div>
 
@@ -220,7 +220,7 @@ Rscript MethylSense_load_data.R \
   --output_dir ./preprocessed
 ```
 
-What happens: Each sample's bedMethyl file is read and kept to one modification code. The script confirms that column 12 holds the methylated reads, drops sites below the minimum coverage, and combines all samples into a single methylRawList object. No intermediate files are written. The saved object is then read back and compared with the raw files site by site (see [Input format and load QC](#input-format-and-load-qc)).
+What happens: Each sample's bedMethyl file is read and kept to one modification code. The script confirms that column 12 holds the methylated reads, drops sites below the minimum coverage, and combines all samples into a single methylRawList object. No intermediate files are written. The saved object is then read back and compared with the raw files site by site (see [bedMethyl columns](#bedmethyl-columns)).
 
 Outputs:
 
@@ -698,7 +698,7 @@ All MethylSense scripts support `--help` to display full parameter lists. This s
 
 ### MethylSense_load_data.R
 
-Reads modkit bedMethyl files into a methylKit methylRawList and verifies the saved object against the raw files (version 6.1.0).
+Reads modkit bedMethyl files into a methylKit methylRawList and verifies the saved object against the raw files (version 6.1.4).
 
 <table style="border-collapse: collapse; width: 100%;">
 <thead>
@@ -713,15 +713,17 @@ Reads modkit bedMethyl files into a methylKit methylRawList and verifies the sav
 <tr style="border-bottom: 1px solid #ddd;"><td style="padding: 10px;">--species</td><td style="padding: 10px;">string</td><td style="padding: 10px;">required</td><td style="padding: 10px;">Species name (must match sample sheet)</td></tr>
 <tr style="border-bottom: 1px solid #ddd;"><td style="padding: 10px;">--sample_sheet</td><td style="padding: 10px;">file</td><td style="padding: 10px;">required</td><td style="padding: 10px;">Path to sample metadata (Excel or CSV)</td></tr>
 <tr style="border-bottom: 1px solid #ddd;"><td style="padding: 10px;">--bed_dir</td><td style="padding: 10px;">dir</td><td style="padding: 10px;">required</td><td style="padding: 10px;">Directory containing the bedMethyl files named in <code>bedFileOrg</code></td></tr>
-<tr style="border-bottom: 1px solid #ddd;"><td style="padding: 10px;">--output_dir</td><td style="padding: 10px;">dir</td><td style="padding: 10px;">required</td><td style="padding: 10px;">Output directory for the .qs2 object and QC files</td></tr>
+<tr style="border-bottom: 1px solid #ddd;"><td style="padding: 10px;">--output_dir</td><td style="padding: 10px;">dir</td><td style="padding: 10px;">required</td><td style="padding: 10px;">Output directory. Writes the .qs2 object, <code>*_load_QC_report.txt</code>, <code>*_load_QC.csv</code> and <code>*_preprocessing_summary.txt</code>. A failed check renames the object <code>*_QC_FAILED.qs2</code> and stops the run.</td></tr>
 <tr style="border-bottom: 1px solid #ddd;"><td style="padding: 10px;">--assembly</td><td style="padding: 10px;">string</td><td style="padding: 10px;">auto</td><td style="padding: 10px;">Genome assembly name</td></tr>
 <tr style="border-bottom: 1px solid #ddd;"><td style="padding: 10px;">--cores</td><td style="padding: 10px;">int</td><td style="padding: 10px;">20</td><td style="padding: 10px;">Number of CPU cores for parallel processing</td></tr>
-<tr style="border-bottom: 1px solid #ddd;"><td style="padding: 10px;">--min_coverage</td><td style="padding: 10px;">int</td><td style="padding: 10px;">1</td><td style="padding: 10px;">Minimum read coverage per CpG site (modified plus unmodified reads)</td></tr>
+<tr style="border-bottom: 1px solid #ddd;"><td style="padding: 10px;">--min_coverage</td><td style="padding: 10px;">int</td><td style="padding: 10px;">1</td><td style="padding: 10px;">Minimum read coverage per CpG site (modified plus unmodified reads). 0 keeps sites with no reads.</td></tr>
 <tr style="border-bottom: 1px solid #ddd;"><td style="padding: 10px;">--mod_code</td><td style="padding: 10px;">string</td><td style="padding: 10px;">auto</td><td style="padding: 10px;">Modification code in bedMethyl column 4 to load. <code>auto</code> uses the only code in the file, or <code>m</code> (5mC) when several codes are present. When several codes are present without <code>m</code>, the run stops and asks for this option. Files made with <code>--combine-mods</code> use <code>C</code>.</td></tr>
-<tr style="border-bottom: 1px solid #ddd;"><td style="padding: 10px;">--mapq_column</td><td style="padding: 10px;">string</td><td style="padding: 10px;">none</td><td style="padding: 10px;">Name of the sample-sheet column holding each sample's mean mapping quality (MAPQ). Enables sample-level MAPQ filtering when combined with <code>--min_mapq</code>.</td></tr>
-<tr style="border-bottom: 1px solid #ddd;"><td style="padding: 10px;">--min_mapq</td><td style="padding: 10px;">numeric</td><td style="padding: 10px;">none</td><td style="padding: 10px;">Minimum mean mapping quality to keep a sample (retains samples with MAPQ &ge; value, i.e. equal or better). Requires <code>--mapq_column</code>.</td></tr>
+<tr style="border-bottom: 1px solid #ddd;"><td style="padding: 10px;">--mapq_column</td><td style="padding: 10px;">string</td><td style="padding: 10px;">none</td><td style="padding: 10px;">Sample-sheet column with each sample's mean MAPQ. Any column name is accepted. Must be paired with <code>--min_mapq</code>. Filtering happens after the species filter and before any bedMethyl file is read. A missing column stops the run. Missing or non-numeric values are dropped. Dropped sample IDs are printed and written to the preprocessing summary.</td></tr>
+<tr style="border-bottom: 1px solid #ddd;"><td style="padding: 10px;">--min_mapq</td><td style="padding: 10px;">numeric</td><td style="padding: 10px;">none</td><td style="padding: 10px;">Keep samples whose mean MAPQ is greater than or equal to this value. Must be paired with <code>--mapq_column</code>. If no sample passes, the run stops.</td></tr>
 <tr style="border-bottom: 1px solid #ddd;"><td style="padding: 10px;">--allow_missing</td><td style="padding: 10px;">flag</td><td style="padding: 10px;">false</td><td style="padding: 10px;">Continue without samples whose bedMethyl file is missing. By default a missing file stops the run. Skipped samples are listed in the QC report.</td></tr>
 <tr style="border-bottom: 1px solid #ddd;"><td style="padding: 10px;">--force_convert</td><td style="padding: 10px;">flag</td><td style="padding: 10px;">false</td><td style="padding: 10px;">Ignored since 6.1.0, which writes no converted files. Accepted so older job scripts still run.</td></tr>
+<tr style="border-bottom: 1px solid #ddd;"><td style="padding: 10px;">--write_nond</td><td style="padding: 10px;">flag</td><td style="padding: 10px;">false</td><td style="padding: 10px;">Also write one legacy 8-column <code>*_CpG_nonD.txt</code> file per sample into the output directory. <code>freqC</code> is the methylated percent from column 12. A repeated chromosome and start keeps the first row. The qs2 object is unchanged, and these files are not read back.</td></tr>
+<tr style="border-bottom: 1px solid #ddd;"><td style="padding: 10px;">--traditional</td><td style="padding: 10px;">flag</td><td style="padding: 10px;">false</td><td style="padding: 10px;">Build the qs2 object the way version 6.0.3 did for a repeated site: keep the first count for a chromosome and start, and drop later rows. Also writes the nonD files. Without this flag, differing counts are added and both strands are kept.</td></tr>
 <tr><td style="padding: 10px;">--no_parallel</td><td style="padding: 10px;">flag</td><td style="padding: 10px;">false</td><td style="padding: 10px;">Disable parallel processing</td></tr>
 </tbody>
 </table>
@@ -751,115 +753,23 @@ Rscript MethylSense_load_data.R \
   --cores 8
 ```
 
-#### Sample-level MAPQ filtering
+#### bedMethyl columns
 
-Mapping quality (MAPQ) reflects how confidently each read was aligned to the
-reference genome. Samples with a low **mean** MAPQ tend to carry more ambiguous
-or mis-placed alignments, which introduces noise into per-CpG methylation
-estimates and can degrade downstream DMR detection and classifier performance.
-MethylSense lets you exclude such low-confidence samples *before* any data is
-processed, so weak samples never enter the methylKit objects, the DMR analysis,
-or model training.
-
-**How it works**
-
-- You compute a per-sample summary statistic (typically the mean mapping quality
-  across all reads, e.g. from `samtools stats` / your alignment QC) and store it
-  as a column in the sample sheet, one value per sample.
-- `--mapq_column` tells the script **which column** to read that value from. This
-  is a name, not a fixed column, so you can call it whatever you like
-  (`mean_mapping_quality`, `MAPQ`, `mean_mapq`, ...) — the script looks up the
-  column by the name you provide. If the named column does not exist, the script
-  stops and lists the available columns.
-- `--min_mapq` sets the **threshold**. A sample is kept when its value is
-  *greater than or equal to* the threshold (equal or better); samples below it
-  are dropped. For example, `--min_mapq 25` keeps every sample with mean
-  MAPQ &ge; 25 and removes the rest.
-
-**Behaviour and safeguards**
-
-- Filtering happens in Step 1, right after the species filter and **before** any
-  bedMethyl file is read. Dropped samples are never loaded.
-- Both flags must be supplied **together**. Passing only one is an error, and
-  omitting both leaves the run completely unchanged (no filtering).
-- Samples whose MAPQ value is missing or non-numeric are treated as failing the
-  filter and are dropped (with a note in the log).
-- The number of samples before/after, the count dropped, and the dropped sample
-  IDs are printed to the console and recorded in the preprocessing summary
-  (`*_preprocessing_summary.txt`) for reproducible reporting. If no samples pass
-  the threshold, the script stops with a clear message.
-
-Example sample sheet (only the relevant columns shown):
-
-| ID | Species | treatMethylkit | bedFileOrg | mean_mapping_quality |
-|----|---------|----------------|------------|----------------------|
-| S1 | Gallus_gallus | 1 | S1.CpG.bed | 31.4 |
-| S2 | Gallus_gallus | 0 | S2.CpG.bed | 22.1 |
-| S3 | Gallus_gallus | 1 | S3.CpG.bed | 27.8 |
-
-With `--mapq_column "mean_mapping_quality" --min_mapq 25`, samples **S1** and
-**S3** are retained and **S2** (22.1 &lt; 25) is dropped.
-
-#### Input format and load QC
-
-`MethylSense_load_data.R` reads the bedMethyl files written by `modkit pileup`
-(for example through NanoporeToBED) without converting them first. The columns
-used are those defined in the
-[modkit bedMethyl description](https://github.com/nanoporetech/modkit#description-of-bedmethyl-output):
+Files are read directly from `modkit pileup` ([bedMethyl column definitions](https://github.com/nanoporetech/modkit#description-of-bedmethyl-output)). Plain or `.gz` files with 13 or 18 columns are accepted, including older modkit files that separate columns 10 to 18 with spaces. Column 11 may be a percent or a fraction. It is checked against column 12 / column 10 and is not stored. A swapped file stops the run. A file that is only closer to column 12, such as the simulated example data, passes with a warning. Counts that do not add up also stop the run. Repeated rows for the same site and strand are collapsed, with identical copies kept once and different counts added, and this is reported as a warning. Both strands are kept. The saved object is read back and compared site by site. A warning is valid but unusual. A failure renames the object `*_QC_FAILED.qs2`. Rebuild objects made before 6.1.0.
 
 | bedMethyl column | modkit name | Stored in methylKit as |
 |------------------|-------------|------------------------|
 | 1 | chrom | `chr` |
 | 2 | start (0-based) | `start` (end is start + 1) |
-| 4 | modification code | filters rows to one code (`--mod_code`) |
-| 6 | strand | `strand` (`-` stays `-`, anything else, including `.`, is stored as `+`) |
+| 4 | modification code | one code, set with `--mod_code` |
+| 6 | strand | `strand` (`-` stays `-`, anything else is `+`) |
 | 10 | N valid coverage | not stored, used to check the counts |
-| 11 | fraction modified | not stored, used to confirm the direction |
+| 11 | fraction modified | not stored, used to confirm column 12 |
 | 12 | N mod | `numCs`, methylated reads |
 | 13 | N canonical | `numTs`, unmethylated reads |
-| 14 | N other mod (18-column files) | not stored, used to check the counts |
+| 14 | N other mod | not stored, used to check the counts |
 
-Coverage is `numCs + numTs`. This equals column 10 unless other modifications
-(column 14) were called, as with separate 5mC and 5hmC calls, where the other
-modification is left out. Sites below `--min_coverage` are dropped, which with
-the default of 1 removes sites without reads. Sites are sorted by chromosome and
-position as methylKit does. Files with 13 or 18 columns, gzip-compressed files,
-and older modkit files that separate columns 10 to 18 with spaces are all read.
-Column 11 may be a percent (older modkit) or a fraction (newer modkit).
-
-**Safeguards while reading.** The run stops with a message naming the sample when:
-
-- column 11 does not confirm column 12 as the modified count. In modkit output,
-  column 11 equals column 12 / column 10 exactly, which the script requires at
-  99% or more of the sites where methylated and unmethylated counts differ. A
-  file whose column 11 is only closer to column 12 than to column 13 at 95% or
-  more of those sites, such as the simulated example data, passes with a
-  warning. A file with swapped count columns fails this check.
-- the count columns do not add up. Columns 12, 13 and 14 must sum to column 10
-  in 18-column files, and columns 12 and 13 must not exceed column 10 in
-  13-column files.
-- the same position and strand occurs more than once for the chosen code, which
-  usually means files were concatenated
-- a bedMethyl file is missing, unless `--allow_missing` is set
-
-No object is written when a file fails these checks.
-
-**QC of the saved object.** After saving, the `.qs2` file is read back from disk
-and compared with every raw bedMethyl file, matching each site on chromosome,
-start and strand. Each sample must have exactly the sites that pass the code and
-coverage filters in the bedMethyl file, with
-`numCs` equal to column 12 and `numTs` equal to column 13 at every site. The
-sample IDs and treatment codes must be in sheet order. The results are written to
-`*_load_QC_report.txt` and `*_load_QC.csv`. A sample gets WARN, not FAIL, when it
-is valid but unusual, for example when other modification codes were skipped or
-its mean methylation is far from the cohort median. If any sample fails, the
-object is renamed `*_QC_FAILED.qs2` and the script exits with an error, so a
-failed object cannot be mistaken for a good one.
-
-Objects built before version 6.0.3 stored methylated and unmethylated counts the
-wrong way round for 18-column modkit files. Version 6.0.3 fixed the mapping but
-could still reuse converted files written by an older version unless
-`--force_convert` was set. Rebuild such objects with 6.1.0.
+Coverage is `numCs + numTs`. This equals column 10 unless column 14 holds other modifications, which are left out. Sites below `--min_coverage` are dropped.
 
 ---
 

@@ -8,7 +8,7 @@
 #          saved object against the raw files site by site.
 #
 # Author: Markus Hodal Drag
-# Version: 6.1.0
+# Version: 6.1.4
 # Release Date: 2026-11-12
 # GitHub: https://github.com/markusdrag/MethylSense
 #
@@ -21,6 +21,19 @@
 #   https://doi.org/10.1128/jcm.01054-25
 #
 # Version history:
+#   6.1.4 (2026-11-12)
+#     - --traditional keeps the first count when a chromosome and start is
+#       repeated, and also writes the legacy nonD files. The default load still
+#       adds differing counts together.
+#   6.1.3 (2026-11-12)
+#     - --write_nond writes a legacy 8-column nonD file per sample. freqC is the
+#       methylated percent from column 12. A repeated chromosome and start keeps
+#       the first row. The files are not read back.
+#   6.1.2 (2026-11-12)
+#     - Repeated rows for the same chromosome, start and strand are collapsed.
+#       Identical copies are kept once. Rows with different counts are added.
+#   6.1.1 (2026-11-12)
+#     - --min_coverage may be 0, which keeps CpG sites with no reads.
 #   6.1.0 (2026-11-12)
 #     - bedMethyl files are read directly. No intermediate _CpG_nonD.txt files are
 #       written or read, so stale converted files can no longer enter a run.
@@ -34,10 +47,9 @@
 #     - Duplicate sites, missing files and unreadable files stop the run.
 #     - --force_convert is accepted and ignored.
 #     - Script paths that contain spaces now work.
-#   6.0.3 (2026-11-10) Column 12 and 13 mapping fixed for 13 and 18 column files.
 # ================================================================================
 
-SCRIPT_VERSION <- "6.1.0"
+SCRIPT_VERSION <- "6.1.4"
 SCRIPT_DATE <- "2026-11-12"
 
 suppressPackageStartupMessages({
@@ -108,7 +120,7 @@ option_list <- list(
   make_option(c("-m", "--min_coverage"),
     type = "integer",
     default = 1,
-    help = "Minimum coverage (Nmod + Ncanonical) per CpG [default: %default]",
+    help = "Minimum coverage (Nmod + Ncanonical) per CpG. 0 keeps sites with no reads [default: %default]",
     metavar = "INTEGER"
   ),
   make_option("--mod_code",
@@ -151,6 +163,26 @@ option_list <- list(
     default = FALSE,
     help = "Ignored since 6.1.0, which writes no converted files. Kept so older job scripts still run"
   ),
+  make_option("--write_nond",
+    action = "store_true",
+    default = FALSE,
+    help = paste(
+      "Also write one legacy 8-column nonD file per sample into --output_dir.",
+      "freqC is the methylated percent (column 12) and freqT is the unmethylated",
+      "percent (column 13). If the same chromosome and start appears more than once,",
+      "the first row is kept and later rows are dropped. The qs2 object is unchanged.",
+      "These nonD files are not read back."
+    )
+  ),
+  make_option("--traditional",
+    action = "store_true",
+    default = FALSE,
+    help = paste(
+      "Build the qs2 object the way version 6.0.3 did when a site is repeated:",
+      "keep the first count for a chromosome and start, and drop later rows.",
+      "Also writes the legacy nonD files. Without this flag, differing counts are added."
+    )
+  ),
   make_option("--no_parallel",
     action = "store_true",
     default = FALSE,
@@ -166,6 +198,7 @@ parser <- OptionParser(
 )
 
 opt <- parse_args(parser)
+if (isTRUE(opt$traditional)) opt$write_nond <- TRUE
 
 if (is.null(opt$species) || is.null(opt$sample_sheet) ||
   is.null(opt$bed_dir) || is.null(opt$output_dir)) {
@@ -179,8 +212,8 @@ if (!is.null(opt$min_mapq) && is.null(opt$mapq_column)) {
 if (!is.null(opt$mapq_column) && is.null(opt$min_mapq)) {
   stop("\nError: --mapq_column requires --min_mapq (the minimum mean mapping quality to keep).\n", call. = FALSE)
 }
-if (is.na(opt$min_coverage) || opt$min_coverage < 1) {
-  stop("\nError: --min_coverage must be 1 or higher.\n", call. = FALSE)
+if (is.na(opt$min_coverage) || opt$min_coverage < 0) {
+  stop("\nError: --min_coverage must be 0 or higher.\n", call. = FALSE)
 }
 
 # ================================================================================
@@ -341,6 +374,65 @@ methylkit_strand <- function(strand) {
   fifelse(strand == "-", "-", "+")
 }
 
+# A merged or concatenated bedMethyl file can list the same CpG more than once.
+# An exact copy must not be counted twice. Two rows with different counts are
+# separate pileups of the same site, so their counts are added.
+collapse_bed_sites <- function(bed) {
+  keys <- c("chr", "start", "strand")
+  n_rows <- nrow(bed)
+  bed <- unique(bed, by = c(keys, "n_mod", "n_canonical", "n_valid", "n_other"))
+  rows_exact_duplicate <- n_rows - nrow(bed)
+  sites_summed <- nrow(bed[, .N, by = keys][N > 1L])
+  if (sites_summed > 0L) {
+    bed <- bed[, .(
+      n_valid = sum(as.numeric(n_valid)),
+      n_mod = sum(as.numeric(n_mod)),
+      n_canonical = sum(as.numeric(n_canonical)),
+      n_other = if (all(is.na(n_other))) NA_real_ else sum(as.numeric(n_other), na.rm = TRUE)
+    ), by = keys]
+    too_big <- bed$n_mod > .Machine$integer.max |
+      bed$n_canonical > .Machine$integer.max |
+      bed$n_valid > .Machine$integer.max
+    if (any(too_big, na.rm = TRUE)) stop("collapsed read counts exceed the integer limit")
+  }
+  list(bed = bed, rows_exact_duplicate = rows_exact_duplicate, sites_summed = sites_summed)
+}
+
+# Legacy 8-column file: chrBase, chr, start, stop, strand, coverage, freqC, freqT.
+# freqC is the methylated percent from column 12. Coverage is column 10.
+# chrBase is chromosome.start. The first row for that key is kept.
+write_nond_file <- function(bed, path, min_coverage) {
+  use <- bed[n_valid >= min_coverage & n_valid > 0]
+  out <- data.table(
+    chrBase = paste(use$chr, use$start, sep = "."),
+    chr = use$chr,
+    start = as.integer(use$start),
+    stop = as.integer(use$start) + 1L,
+    strand = use$strand,
+    coverage = as.integer(use$n_valid),
+    freqC = round(pmin(100, use$n_mod / use$n_valid * 100), 3),
+    freqT = round(pmin(100, use$n_canonical / use$n_valid * 100), 3)
+  )
+  out <- out[freqC >= 0 & freqC <= 100 & freqT >= 0 & freqT <= 100]
+  n_before <- nrow(out)
+  out <- out[!duplicated(chrBase)]
+  fwrite(out, path, sep = "\t", col.names = TRUE, quote = FALSE)
+  list(
+    sites = nrow(out),
+    zero_coverage_dropped = sum(bed$n_valid == 0),
+    chrbase_dropped = n_before - nrow(out)
+  )
+}
+
+# Same rule as the legacy nonD file: one row per chromosome and start.
+# The first row in the file is kept. Later rows, including the other strand, are dropped.
+keep_first_chr_start <- function(bed, min_coverage) {
+  use <- bed[n_valid >= min_coverage & n_valid > 0]
+  n_before <- nrow(use)
+  use <- use[!duplicated(use, by = c("chr", "start"))]
+  list(bed = use, rows_dropped = n_before - nrow(use))
+}
+
 # ================================================================================
 # SETUP
 # ================================================================================
@@ -456,7 +548,10 @@ cat("  Total samples in sheet: ", nrow(sheet_all), "\n")
 cat("  Samples for", opt$species, ":", nrow(sheet), "\n")
 cat("  Input column:            bedFileOrg (modkit bedMethyl)\n")
 if ("bedFile" %in% colnames(sheet)) {
-  cat("  Note: the bedFile column is no longer used. No converted files are read or written.\n")
+  cat("  Note: the bedFile column is not read. The object is built from bedFileOrg.\n")
+}
+if (isTRUE(opt$write_nond)) {
+  cat("  Legacy nonD files:   one 8-column file per sample in the output directory\n")
 }
 cat("\n")
 
@@ -552,19 +647,37 @@ build_sample <- function(i) {
 
       rows_unstranded <- sum(!bed$strand %in% c("+", "-"))
       bed[, strand := methylkit_strand(strand)]
-      bed[, coverage := n_mod + n_canonical]
-      rows_zero_coverage <- sum(bed$coverage == 0)
-      rows_below_min <- sum(bed$coverage > 0 & bed$coverage < opt$min_coverage)
-      bed <- bed[coverage >= opt$min_coverage]
-      if (nrow(bed) == 0L) stop("no sites left after the coverage filter")
 
-      dups <- bed[, .N, by = .(chr, start, strand)][N > 1L]
-      if (nrow(dups) > 0L) {
-        stop(sprintf(
-          "%d site(s) occur more than once for code %s, for example %s:%d (%s). The file may be concatenated or merged",
-          nrow(dups), code_used, dups$chr[1], dups$start[1], dups$strand[1]
-        ))
+      nond_sites <- NA_integer_
+      nond_chrbase_dropped <- NA_integer_
+      nond_zero_dropped <- NA_integer_
+      if (isTRUE(opt$write_nond)) {
+        nond_path <- file.path(opt$output_dir, paste0(basename(path), "_CpG_nonD.txt"))
+        nond <- write_nond_file(bed, nond_path, opt$min_coverage)
+        nond_sites <- nond$sites
+        nond_chrbase_dropped <- nond$chrbase_dropped
+        nond_zero_dropped <- nond$zero_coverage_dropped
       }
+
+      if (isTRUE(opt$traditional)) {
+        kept <- keep_first_chr_start(bed, opt$min_coverage)
+        bed <- kept$bed
+        traditional_dropped <- kept$rows_dropped
+        bed[, coverage := n_mod + n_canonical]
+        rows_zero_coverage <- nond_zero_dropped
+        if (is.na(rows_zero_coverage)) rows_zero_coverage <- sum(bed$coverage == 0)
+        rows_below_min <- 0L
+        collapsed <- list(rows_exact_duplicate = 0L, sites_summed = 0L)
+      } else {
+        traditional_dropped <- 0L
+        collapsed <- collapse_bed_sites(bed)
+        bed <- collapsed$bed
+        bed[, coverage := n_mod + n_canonical]
+        rows_zero_coverage <- sum(bed$coverage == 0)
+        rows_below_min <- sum(bed$coverage > 0 & bed$coverage < opt$min_coverage)
+        bed <- bed[coverage >= opt$min_coverage]
+      }
+      if (nrow(bed) == 0L) stop("no sites left after the coverage filter")
 
       df <- data.frame(
         chr = bed$chr,
@@ -576,7 +689,7 @@ build_sample <- function(i) {
         numTs = as.integer(bed$n_canonical),
         stringsAsFactors = FALSE
       )
-      df <- df[order(df$chr, df$start, df$end), ]
+      df <- df[order(df$chr, df$start, df$end, df$strand), ]
       row.names(df) <- NULL
 
       obj <- new("methylRaw", df,
@@ -604,11 +717,20 @@ build_sample <- function(i) {
         rows_unstranded = rows_unstranded,
         rows_zero_coverage = rows_zero_coverage,
         rows_below_min_coverage = rows_below_min,
+        rows_exact_duplicate = collapsed$rows_exact_duplicate,
+        sites_summed = collapsed$sites_summed,
+        traditional_dropped = traditional_dropped,
+        nond_sites = nond_sites,
+        nond_chrbase_dropped = nond_chrbase_dropped,
+        nond_zero_dropped = nond_zero_dropped,
         sites_loaded = nrow(df),
         median_coverage = median(df$coverage),
         pct_sites_cov5 = round(100 * mean(df$coverage >= 5), 3),
         pct_plus_strand = round(100 * mean(df$strand == "+"), 3),
-        mean_meth_pct = round(100 * sum(as.numeric(df$numCs)) / sum(as.numeric(df$coverage)), 3)
+        mean_meth_pct = {
+          cov_sum <- sum(as.numeric(df$coverage))
+          if (cov_sum > 0) round(100 * sum(as.numeric(df$numCs)) / cov_sum, 3) else NA_real_
+        }
       )
       list(status = "OK", obj = obj, qc = qc)
     },
@@ -644,6 +766,15 @@ for (k in seq_len(nrow(build_qc))) {
     build_qc$sample[k], format(build_qc$sites_loaded[k], big.mark = ","),
     build_qc$mod_code[k], build_qc$mean_meth_pct[k]
   ))
+  if (build_qc$rows_exact_duplicate[k] > 0 || build_qc$sites_summed[k] > 0) {
+    cat(sprintf(
+      "    repeated rows collapsed: %s identical extra %s dropped, %s %s summed\n",
+      format(build_qc$rows_exact_duplicate[k], big.mark = ","),
+      ifelse(build_qc$rows_exact_duplicate[k] == 1, "row", "rows"),
+      format(build_qc$sites_summed[k], big.mark = ","),
+      ifelse(build_qc$sites_summed[k] == 1, "site", "sites")
+    ))
+  }
 }
 cat("\nObject created successfully!\n\n")
 
@@ -716,8 +847,15 @@ verify_sample <- function(k) {
       want_code <- build_qc$mod_code[k]
 
       raw <- read_bedmethyl(bed_paths[k])$bed
-      raw <- raw[code == want_code & (n_mod + n_canonical) >= opt$min_coverage]
-      raw <- raw[, .(chr, start, strand = methylkit_strand(strand), n_mod, n_canonical)]
+      raw <- raw[code == want_code]
+      raw[, strand := methylkit_strand(strand)]
+      if (isTRUE(opt$traditional)) {
+        raw <- keep_first_chr_start(raw, opt$min_coverage)$bed
+      } else {
+        raw <- collapse_bed_sites(raw)$bed
+        raw <- raw[(n_mod + n_canonical) >= opt$min_coverage]
+      }
+      raw <- raw[, .(chr, start, strand, n_mod, n_canonical)]
 
       m <- merge(got, raw, by = c("chr", "start", "strand"), all = TRUE)
       in_both <- m[!is.na(numCs) & !is.na(n_mod)]
@@ -736,8 +874,14 @@ verify_sample <- function(k) {
         qc_numTs_equals_Ncanonical = mean(in_both$numTs == in_both$n_canonical),
         qc_informative_sites = nrow(informative),
         qc_informative_swapped = sum(informative$numCs == informative$n_canonical & informative$numTs == informative$n_mod),
-        qc_mean_meth_bed_pct = round(100 * sum(as.numeric(raw$n_mod)) / sum(as.numeric(raw$n_mod + raw$n_canonical)), 3),
-        qc_mean_meth_object_pct = round(100 * sum(as.numeric(got$numCs)) / sum(as.numeric(got$coverage)), 3),
+        qc_mean_meth_bed_pct = {
+          den <- sum(as.numeric(raw$n_mod + raw$n_canonical))
+          if (den > 0) round(100 * sum(as.numeric(raw$n_mod)) / den, 3) else NA_real_
+        },
+        qc_mean_meth_object_pct = {
+          den <- sum(as.numeric(got$coverage))
+          if (den > 0) round(100 * sum(as.numeric(got$numCs)) / den, 3) else NA_real_
+        },
         qc_error = NA_character_
       )
     },
@@ -772,6 +916,32 @@ warn_reason <- function(r, cohort_median, cohort_mad) {
   if (r$rows_other_code > 0) why <- c(why, sprintf("%s rows with other codes skipped", format(r$rows_other_code, big.mark = ",")))
   if (!is.na(r$n_other_mod_total) && r$n_other_mod_total > 0) why <- c(why, "Nother_mod > 0, so other modifications were left out of coverage")
   if (r$rows_unstranded > 0) why <- c(why, "unstranded rows were stored as + strand")
+  if (r$rows_exact_duplicate > 0) {
+    why <- c(why, sprintf(
+      "%s identical extra %s dropped",
+      format(r$rows_exact_duplicate, big.mark = ","),
+      ifelse(r$rows_exact_duplicate == 1, "row was", "rows were")
+    ))
+  }
+  if (r$sites_summed > 0) {
+    why <- c(why, sprintf(
+      "%s %s different counts and those counts were added",
+      format(r$sites_summed, big.mark = ","),
+      ifelse(r$sites_summed == 1, "site had", "sites had")
+    ))
+  }
+  if (!is.na(r$traditional_dropped) && r$traditional_dropped > 0) {
+    why <- c(why, sprintf(
+      "%s later rows with the same chromosome and start were dropped. The first count was kept",
+      format(r$traditional_dropped, big.mark = ",")
+    ))
+  }
+  if (!is.na(r$nond_chrbase_dropped) && r$nond_chrbase_dropped > 0) {
+    why <- c(why, sprintf(
+      "%s later nonD rows with the same chromosome and start were dropped. The first row was kept",
+      format(r$nond_chrbase_dropped, big.mark = ",")
+    ))
+  }
   if (is.na(r$col11_agrees_with_Nmod)) why <- c(why, "no informative sites to confirm direction")
   if (!is.na(r$col11_agrees_with_Nmod) && r$col11_agrees_with_Nmod < DIRECTION_EXACT_MIN) {
     why <- c(why, sprintf(
@@ -779,7 +949,8 @@ warn_reason <- function(r, cohort_median, cohort_mad) {
       100 * r$col11_agrees_with_Nmod, 100 * r$col11_closer_to_Nmod
     ))
   }
-  if (!is.na(cohort_mad) && cohort_mad > 0 && abs(r$mean_meth_pct - cohort_median) > 4 * cohort_mad) {
+  if (!is.na(cohort_mad) && cohort_mad > 0 && !is.na(r$mean_meth_pct) &&
+    abs(r$mean_meth_pct - cohort_median) > 4 * cohort_mad) {
     why <- c(why, sprintf("mean methylation %.2f%% is far from the cohort median %.2f%%", r$mean_meth_pct, cohort_median))
   }
   paste(why, collapse = "; ")
@@ -816,9 +987,11 @@ report <- c(
   "  equal column 12 / column 10, which confirms column 12 as the methylated count.",
   "  Files where column 11 is only closer to column 12 than to column 13 (simulated",
   "  data) pass with a warning.",
-  "  The saved .qs2 is read back from disk. Every site is matched to the raw file",
-  "  by chromosome, start and strand, and numCs must equal column 12 and numTs must",
-  "  equal column 13 at every site.",
+  "  Repeated rows for the same chromosome, start and strand are collapsed first.",
+  "  Identical copies are kept once, and rows with different counts are added.",
+  "  The saved .qs2 is read back from disk. Every site is matched to that collapsed",
+  "  file by chromosome, start and strand. numCs must equal the collapsed column 12",
+  "  and numTs must equal the collapsed column 13 at every site.",
   "",
   "Object checks:",
   paste0("  ", names(object_checks), ": ", ifelse(object_checks, "OK", "FAILED")),
